@@ -252,7 +252,7 @@ public:
     void *device_workspace_ptr = nullptr,             ///< Device workspace
     ElementCompute reduction_identity = ElementCompute(), ///< Reduciton identity
     ReductionOp reduction_op = ReductionOp(),     ///< Reduction operator
-    hggcStream_t stream = nullptr) {              ///< HGGC Stream into which all kernels are launched
+    cudaStream_t stream = nullptr) {              ///< HGGC Stream into which all kernels are launched
 
     // Initial status check
     if (!good()) {
@@ -307,7 +307,7 @@ public:
     Kernel<ReductionKernel><<< grid_shape, threadblock_shape, shared_mem_bytes, stream >>>(params);
 
     // Check error condition
-    if (hggcPeekAtLastError() == hggcSuccess) {
+    if (cudaPeekAtLastError() == cudaSuccess) {
       status = Status::kSuccess;
     }
     else {
@@ -320,7 +320,7 @@ public:
       Kernel<FinalReductionKernel><<< grid_final, threadblock_final, 0, stream >>>(params);
 
       // Check error condition
-      if (hggcPeekAtLastError() == hggcSuccess) {
+      if (cudaPeekAtLastError() == cudaSuccess) {
         status = Status::kSuccess;
       }
       else {
@@ -340,7 +340,7 @@ public:
     void *device_workspace_ptr = nullptr,         ///< Pointer to device workspace
     ElementCompute reduction_identity = ElementCompute(), ///< Reduciton identity
     ReductionOp reduction_op = ReductionOp(),     ///< Reduction operator
-    hggcStream_t stream = nullptr) {              ///< HGGC Stream into which all kernels are launched
+    cudaStream_t stream = nullptr) {              ///< HGGC Stream into which all kernels are launched
 
     return reduce(
       dst_ptr, 

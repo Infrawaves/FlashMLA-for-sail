@@ -42,8 +42,8 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/cassert>
-#include <hggc/std/utility>
+#include <cuda/std/cassert>
+#include <cuda/std/utility>
 #else
 #include <assert.h>
 #include <utility>

@@ -402,7 +402,7 @@ struct GemmStreamkWithFusedEpilogue<Mma_, Epilogue_, ThreadblockSwizzle_, false>
     /// the memory allocated to workspace is at least as large as get_workspace_size().
     Status init_workspace(
       void *workspace,
-      hggcStream_t stream = nullptr)
+      cudaStream_t stream = nullptr)
     {
       uint8_t *ptr = static_cast<uint8_t*>(workspace);
 
@@ -438,14 +438,14 @@ struct GemmStreamkWithFusedEpilogue<Mma_, Epilogue_, ThreadblockSwizzle_, false>
 
         CUTLASS_TRACE_HOST("  Initialize " << barrier_workspace_bytes << " barrier bytes");
 
-        hggcError_t result = hggcMemsetAsync(
+        cudaError_t result = cudaMemsetAsync(
           barrier_workspace,
           0,
           barrier_workspace_bytes,
           stream);
 
-        if (result != hggcSuccess) {
-          CUTLASS_TRACE_HOST("  hggcMemsetAsync() returned error " << hggcGetErrorString(result));
+        if (result != cudaSuccess) {
+          CUTLASS_TRACE_HOST("  cudaMemsetAsync() returned error " << cudaGetErrorString(result));
           return Status::kErrorInternal;
         }
       }
@@ -1582,7 +1582,7 @@ struct GemmStreamkWithFusedEpilogue<Mma_, Epilogue_, ThreadblockSwizzle_, true> 
     /// the memory allocated to workspace is at least as large as get_workspace_size().
     Status init_workspace(
       void *workspace,
-      hggcStream_t stream = nullptr)
+      cudaStream_t stream = nullptr)
     {
       uint8_t *ptr = static_cast<uint8_t*>(workspace);
 
@@ -1617,14 +1617,14 @@ struct GemmStreamkWithFusedEpilogue<Mma_, Epilogue_, ThreadblockSwizzle_, true> 
 
         CUTLASS_TRACE_HOST("  Initialize " << barrier_workspace_bytes << " barrier bytes");
 
-        hggcError_t result = hggcMemsetAsync(
+        cudaError_t result = cudaMemsetAsync(
           barrier_workspace,
           0,
           barrier_workspace_bytes,
           stream);
 
-        if (result != hggcSuccess) {
-          CUTLASS_TRACE_HOST("  hggcMemsetAsync() returned error " << hggcGetErrorString(result));
+        if (result != cudaSuccess) {
+          CUTLASS_TRACE_HOST("  cudaMemsetAsync() returned error " << cudaGetErrorString(result));
           return Status::kErrorInternal;
         }
       }

@@ -39,7 +39,7 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/limits>
+#include <cuda/std/limits>
 #else
 #include <limits>
 #endif
@@ -134,13 +134,13 @@ protected:
   {
     CUTLASS_TRACE_HOST("GemmUniversalBase::init_device_props()");
 
-    hggcError_t hggcrt_result;
+    cudaError_t hggcrt_result;
 
     // Get current device ordinal
     int current_ordinal;
-    hggcrt_result = hggcGetDevice(&current_ordinal);
-    if (hggcrt_result != hggcSuccess) {
-      CUTLASS_TRACE_HOST("  hggcGetDevice() returned error " << hggcGetErrorString(hggcrt_result));
+    hggcrt_result = cudaGetDevice(&current_ordinal);
+    if (hggcrt_result != cudaSuccess) {
+      CUTLASS_TRACE_HOST("  cudaGetDevice() returned error " << cudaGetErrorString(hggcrt_result));
       return Status::kErrorInternal;
     }
 
@@ -151,34 +151,34 @@ protected:
     }
 
     // Update CU count member
-    hggcrt_result = hggcDeviceGetAttribute (&device_cus_, hggcDevAttrMultiProcessorCount, current_ordinal);
-    if (hggcrt_result != hggcSuccess) {
-      CUTLASS_TRACE_HOST("  hggcDeviceGetAttribute() returned error " << hggcGetErrorString(hggcrt_result));
+    hggcrt_result = cudaDeviceGetAttribute (&device_cus_, cudaDevAttrMultiProcessorCount, current_ordinal);
+    if (hggcrt_result != cudaSuccess) {
+      CUTLASS_TRACE_HOST("  cudaDeviceGetAttribute() returned error " << cudaGetErrorString(hggcrt_result));
       return Status::kErrorInternal;
     }
 
     // If requires more than 48KB: configure for extended, dynamic shared memory
     if constexpr (kSharedStorageSize >= (48 << 10))
     {
-      hggcrt_result = hggcFuncSetAttribute(
+      hggcrt_result = cudaFuncSetAttribute(
         Kernel2<GemmKernel>,
-        hggcFuncAttributeMaxDynamicSharedMemorySize,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
         kSharedStorageSize);
-      if (hggcrt_result != hggcSuccess) {
-        CUTLASS_TRACE_HOST("  hggcFuncSetAttribute() returned error " << hggcGetErrorString(hggcrt_result));
+      if (hggcrt_result != cudaSuccess) {
+        CUTLASS_TRACE_HOST("  cudaFuncSetAttribute() returned error " << cudaGetErrorString(hggcrt_result));
         return Status::kErrorInternal;
       }
     }
 
     // Update CU occupancy member
-    hggcrt_result = hggcOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
+    hggcrt_result = cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags(
       &cu_occupancy_,
       Kernel2<GemmKernel>,
       GemmKernel::kThreadCount,
       kSharedStorageSize,
-      hggcOccupancyDisableCachingOverride);
-    if (hggcrt_result != hggcSuccess) {
-      CUTLASS_TRACE_HOST("  hggcOccupancyMaxActiveBlocksPerMultiprocessorWithFlags() returned error " << hggcGetErrorString(hggcrt_result));
+      cudaOccupancyDisableCachingOverride);
+    if (hggcrt_result != cudaSuccess) {
+      CUTLASS_TRACE_HOST("  cudaOccupancyMaxActiveBlocksPerMultiprocessorWithFlags() returned error " << cudaGetErrorString(hggcrt_result));
       return Status::kErrorInternal;
     }
 
@@ -381,7 +381,7 @@ public:
   Status initialize(
     Arguments const &args,
     void *workspace = nullptr,
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr)
   {
     CUTLASS_TRACE_HOST("GemmUniversalBase::initialize() - workspace "
@@ -411,7 +411,7 @@ public:
   }
 
   /// Runs the kernel using initialized state.
-  Status run(hggcStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr)
+  Status run(cudaStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr)
   {
     CUTLASS_TRACE_HOST("GemmUniversalBase::run()");
 
@@ -441,9 +441,9 @@ public:
       Kernel2<GemmKernel><<<grid, block, kSharedStorageSize, stream>>>(params_);
 
       // Query for errors
-      hggcError_t result = hggcGetLastError();
-      if (result != hggcSuccess) {
-        CUTLASS_TRACE_HOST("  grid launch failed with error " << hggcGetErrorString(result));
+      cudaError_t result = cudaGetLastError();
+      if (result != cudaSuccess) {
+        CUTLASS_TRACE_HOST("  grid launch failed with error " << cudaGetErrorString(result));
         return Status::kErrorInternal;
       }
     }
@@ -453,7 +453,7 @@ public:
 
 
   /// Runs the kernel using initialized state.
-  Status operator()(hggcStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr)
+  Status operator()(cudaStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr)
   {
     return run(stream, hggc_adapter);
   }
@@ -463,7 +463,7 @@ public:
   Status operator()(
     Arguments const &args, 
     void *workspace = nullptr, 
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr)
   {
     Status status = initialize(args, workspace, stream, hggc_adapter);

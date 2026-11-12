@@ -33,11 +33,11 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/type_traits>
-#include <hggc/std/utility>
-#include <hggc/std/cstddef>
-#include <hggc/std/cstdint>
-#include <hggc/std/limits>
+#include <cuda/std/type_traits>
+#include <cuda/std/utility>
+#include <cuda/std/cstddef>
+#include <cuda/std/cstdint>
+#include <cuda/std/limits>
 #else
 #include <type_traits>
 #include <utility>      // tuple_size, tuple_element

@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include <hggc_runtime_api.h>
+#include <cuda_runtime_api.h>
 #include "cutlass/cutlass.h"
 #include "cutlass/trace.h"
 
@@ -164,7 +164,7 @@ struct HggcHostAdapter {
     dim3 const grid_dims,
     dim3 const block_dims,
     size_t const smem_size,
-    hggcStream_t hggc_stream,
+    cudaStream_t hggc_stream,
     void** kernel_params,
     int32_t kernel_index) const = 0;
 
@@ -174,7 +174,7 @@ struct HggcHostAdapter {
     dim3 const cluster_dims,
     dim3 const block_dims,
     size_t const smem_size,
-    hggcStream_t hggc_stream,
+    cudaStream_t hggc_stream,
     void** kernel_params,
     int32_t kernel_index) const = 0;
 };

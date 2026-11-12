@@ -68,8 +68,8 @@ inline std::ostream &operator<<(std::ostream &out, dim3 d) {
 }
 
 /// Output operator for HGGC built-in error type
-inline std::ostream &operator<<(std::ostream &out, hggcError_t error) {
-  return out << hggcGetErrorString(error);
+inline std::ostream &operator<<(std::ostream &out, cudaError_t error) {
+  return out << cudaGetErrorString(error);
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////

@@ -3395,11 +3395,11 @@ private:
 
     // This is the BF16 {136, 136} represented as an integer.
     static constexpr uint32_t bias_rep = 0x43084308;
-    const __ppu_bfloat162& bias = reinterpret_cast<const __ppu_bfloat162&>(bias_rep);
+    const __nv_bfloat162& bias = reinterpret_cast<const __nv_bfloat162&>(bias_rep);
     
     CUTLASS_PRAGMA_UNROLL
     for (int ii = 0; ii < RegArray::kElements; ++ii) {
-      __ppu_bfloat162& bf16x2_val = reinterpret_cast<__ppu_bfloat162&>(r[ii]);
+      __nv_bfloat162& bf16x2_val = reinterpret_cast<__nv_bfloat162&>(r[ii]);
       bf16x2_val = __hsub2(bf16x2_val, bias);
     }
 

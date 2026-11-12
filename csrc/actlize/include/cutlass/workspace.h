@@ -47,8 +47,8 @@
 #pragma once
 
 #if !defined(__HGGCCC_RTC__)
-#include "hggc.h"
-#include "hggc_runtime.h"
+#include "cuda.h"
+#include "cuda_runtime.h"
 
 #include "cutlass/trace.h"
 #endif
@@ -63,7 +63,7 @@ static constexpr int MinWorkspaceAlignment = 16;
 
 #if !defined(__HGGCCC_RTC__)
 static Status
-zero_workspace(void* workspace, size_t workspace_size, hggcStream_t stream = nullptr) {
+zero_workspace(void* workspace, size_t workspace_size, cudaStream_t stream = nullptr) {
   if (workspace_size > 0) {
     if (workspace == nullptr) {
       CUTLASS_TRACE_HOST("  error: device workspace must not be null");
@@ -71,10 +71,10 @@ zero_workspace(void* workspace, size_t workspace_size, hggcStream_t stream = nul
     }
 
     CUTLASS_TRACE_HOST("  clearing workspace");
-    hggcError_t result = hggcMemsetAsync(workspace, 0, workspace_size, stream);
-    if (hggcSuccess != result) {
-      result = hggcGetLastError(); // to clear the error bit
-      CUTLASS_TRACE_HOST("  hggcMemsetAsync() returned error " << hggcGetErrorString(result));
+    cudaError_t result = cudaMemsetAsync(workspace, 0, workspace_size, stream);
+    if (cudaSuccess != result) {
+      result = cudaGetLastError(); // to clear the error bit
+      CUTLASS_TRACE_HOST("  cudaMemsetAsync() returned error " << cudaGetErrorString(result));
       return Status::kErrorInternal;
     }
   }
@@ -86,7 +86,7 @@ zero_workspace(void* workspace, size_t workspace_size, hggcStream_t stream = nul
 #if !defined(__HGGCCC_RTC__)
 template <typename T>
 Status
-fill_workspace(void* workspace, T fill_value, size_t fill_count, hggcStream_t stream = nullptr) {
+fill_workspace(void* workspace, T fill_value, size_t fill_count, cudaStream_t stream = nullptr) {
   static_assert(sizeof(T) == 4 || sizeof(T) == 2 || sizeof(T) == 1, "Unsupported fill type");
   if (fill_count > 0) {
     if (workspace == nullptr) {
@@ -95,26 +95,26 @@ fill_workspace(void* workspace, T fill_value, size_t fill_count, hggcStream_t st
     }
 
     CUTLASS_TRACE_HOST("  filling workspace");
-    HGdeviceptr d_workspace = reinterpret_cast<HGdeviceptr>(workspace);
-    HGresult result = HGGC_SUCCESS;
+    CUdeviceptr d_workspace = reinterpret_cast<CUdeviceptr>(workspace);
+    CUresult result = CUDA_SUCCESS;
     if (sizeof(T) == 4) {
-      result = hgMemsetD32Async(d_workspace, reinterpret_cast<uint32_t&>(fill_value), fill_count, stream);
+      result = cuMemsetD32Async(d_workspace, reinterpret_cast<uint32_t&>(fill_value), fill_count, stream);
     }
     else if (sizeof(T) == 2) {
-      result = hgMemsetD16Async(d_workspace, reinterpret_cast<uint16_t&>(fill_value), fill_count, stream);
+      result = cuMemsetD16Async(d_workspace, reinterpret_cast<uint16_t&>(fill_value), fill_count, stream);
     }
     else if (sizeof(T) == 1) {
-      result = hgMemsetD8Async(d_workspace, reinterpret_cast<uint8_t&>(fill_value), fill_count, stream);
+      result = cuMemsetD8Async(d_workspace, reinterpret_cast<uint8_t&>(fill_value), fill_count, stream);
     }
 
-    if (HGGC_SUCCESS != result) {
+    if (CUDA_SUCCESS != result) {
       const char** error_string_ptr = nullptr;
-      (void) hgGetErrorString(result, error_string_ptr);
+      (void) cuGetErrorString(result, error_string_ptr);
       if (error_string_ptr != nullptr) {
-        CUTLASS_TRACE_HOST("  hgMemsetD" << sizeof(T) * 8 << "Async() returned error " << *error_string_ptr);
+        CUTLASS_TRACE_HOST("  cuMemsetD" << sizeof(T) * 8 << "Async() returned error " << *error_string_ptr);
       }
       else {
-        CUTLASS_TRACE_HOST("  hgMemsetD" << sizeof(T) * 8 << "Async() returned unrecognized error");
+        CUTLASS_TRACE_HOST("  cuMemsetD" << sizeof(T) * 8 << "Async() returned unrecognized error");
       }
       return Status::kErrorInternal;
     }

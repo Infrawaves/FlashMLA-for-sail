@@ -44,7 +44,7 @@
 #include "cutlass/epilogue/fusion/ppu_callbacks_tma_warpspecialized.hpp"
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/type_traits>
+#include <cuda/std/type_traits>
 #else
 #include <type_traits>
 #endif

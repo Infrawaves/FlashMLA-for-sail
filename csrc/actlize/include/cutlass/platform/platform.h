@@ -111,11 +111,11 @@
 //-----------------------------------------------------------------------------
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/type_traits>
-#include <hggc/std/utility>
-#include <hggc/std/cstddef>
-#include <hggc/std/cstdint>
-#include <hggc/std/limits>
+#include <cuda/std/type_traits>
+#include <cuda/std/utility>
+#include <cuda/std/cstddef>
+#include <cuda/std/cstdint>
+#include <cuda/std/limits>
 #else
 #include <stdint.h>
 #endif
@@ -149,7 +149,7 @@
 /// std
 #if !defined(CUTLASS_STL_NAMESPACE)
 #if defined(__HGGCCC_RTC__)
-#define CUTLASS_STL_NAMESPACE hggc::std
+#define CUTLASS_STL_NAMESPACE cuda::std
 #else
 #define CUTLASS_STL_NAMESPACE std
 #endif

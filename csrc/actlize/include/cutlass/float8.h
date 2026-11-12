@@ -48,15 +48,15 @@
 #pragma once
 
 // FP8 types are available starting HGGC 11.8+
-#if HGGCRT_VERSION >= 11080
+#if CUDART_VERSION >= 11080
 #define HGGC_FP8_ENABLED 1
 #endif
 
 #if defined(__HGGC_ARCH__)
 #  if (__HGGC_ARCH__ >= 150)
-#    if HGGCRT_VERSION >= 11080
+#    if CUDART_VERSION >= 11080
 #      define HGGC_PTX_FP8_CVT_ENABLED 1
-#    endif // HGGCRT_VERSION >= 11080
+#    endif // CUDART_VERSION >= 11080
 #  endif // (__HGGC_ARCH__ >= 150)
 #endif // defined(__HGGC_ARCH__)
 
@@ -82,9 +82,9 @@
 #endif
 
 #ifdef HGGC_FP8_ENABLED
-#include <hggc_fp8.h>
+#include <cuda_fp8.h>
 #endif
-#include <hggc_fp16.h>
+#include <cuda_fp16.h>
 
 #include "cutlass/cutlass.h"
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -465,7 +465,7 @@ struct alignas(1) float_e4m3_t : float8_base<FloatEncoding::E4M3> {
 #ifdef HGGC_FP8_ENABLED
     /// Conversion from HGGC's FP8 type
     CUTLASS_HOST_DEVICE
-    explicit float_e4m3_t(__hg_fp8_e4m3 x) {
+    explicit float_e4m3_t(__nv_fp8_e4m3 x) {
         storage = x.__x;
     }
 #endif
@@ -502,7 +502,7 @@ struct alignas(1) float_e4m3_t : float8_base<FloatEncoding::E4M3> {
 #ifdef HGGC_FP8_ENABLED
     /// Assignment from HGGC's FP8 type
     CUTLASS_HOST_DEVICE
-    float_e4m3_t & operator=(__hg_fp8_e4m3 x) {
+    float_e4m3_t & operator=(__nv_fp8_e4m3 x) {
         storage = x.__x;
         return *this;
     }
@@ -674,7 +674,7 @@ struct alignas(1) float_e5m2_t : float8_base<FloatEncoding::E5M2> {
 #ifdef HGGC_FP8_ENABLED
     /// Conversion from HGGC's FP8 type
     CUTLASS_HOST_DEVICE
-    explicit float_e5m2_t(__hg_fp8_e5m2 x) {
+    explicit float_e5m2_t(__nv_fp8_e5m2 x) {
         storage = x.__x;
     }
 #endif
@@ -711,7 +711,7 @@ struct alignas(1) float_e5m2_t : float8_base<FloatEncoding::E5M2> {
 #ifdef HGGC_FP8_ENABLED
     /// Assignment from HGGC's FP8 type
     CUTLASS_HOST_DEVICE
-    float_e5m2_t & operator=(__hg_fp8_e5m2 x) {
+    float_e5m2_t & operator=(__nv_fp8_e5m2 x) {
         storage = x.__x;
         return *this;
     }

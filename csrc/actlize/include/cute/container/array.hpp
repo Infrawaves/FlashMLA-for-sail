@@ -395,7 +395,7 @@ reverse(cute::array<T, N> const& t) {
 //
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/tuple>
+#include <cuda/std/tuple>
 #else
 #include <tuple>
 #endif

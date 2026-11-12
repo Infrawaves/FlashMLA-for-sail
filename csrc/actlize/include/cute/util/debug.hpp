@@ -37,7 +37,7 @@
  * \brief Debugging and logging functionality
  */
 
-#include <hggc_runtime_api.h>
+#include <cuda_runtime_api.h>
 
 #include <cute/config.hpp>
 
@@ -80,11 +80,11 @@ namespace cute
 #if !defined(CUTE_ERROR_EXIT)
 #  define CUTE_ERROR_EXIT(e)                                         \
       do {                                                           \
-        hggcError_t code = (e);                                      \
-        if (code != hggcSuccess) {                                   \
+        cudaError_t code = (e);                                      \
+        if (code != cudaSuccess) {                                   \
           fprintf(stderr, "<%s:%d> %s:\n    %s: %s\n",               \
                   __FILE__, __LINE__, #e,                            \
-                  hggcGetErrorName(code), hggcGetErrorString(code)); \
+                  cudaGetErrorName(code), cudaGetErrorString(code)); \
           fflush(stderr);                                            \
           exit(1);                                                   \
         }                                                            \
@@ -92,7 +92,7 @@ namespace cute
 #endif
 
 #if !defined(CUTE_CHECK_LAST)
-#  define CUTE_CHECK_LAST() CUTE_ERROR_EXIT(hggcPeekAtLastError()); CUTE_ERROR_EXIT(hggcDeviceSynchronize())
+#  define CUTE_CHECK_LAST() CUTE_ERROR_EXIT(cudaPeekAtLastError()); CUTE_ERROR_EXIT(cudaDeviceSynchronize())
 #endif
 
 #if !defined(CUTE_CHECK_ERROR)

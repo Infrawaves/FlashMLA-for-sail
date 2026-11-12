@@ -392,7 +392,7 @@ public:
   }
 
   /// Initializes GEMM state from arguments.
-  Status initialize(Arguments const &args, void *workspace = nullptr, hggcStream_t stream = nullptr) {
+  Status initialize(Arguments const &args, void *workspace = nullptr, cudaStream_t stream = nullptr) {
 
     // Determine grid shape
     ThreadblockSwizzle threadblock_swizzle;
@@ -410,9 +410,9 @@ public:
 
         size_t bytes = get_workspace_size(args);
       
-        hggcError_t result = hggcMemsetAsync(workspace, 0, bytes, stream);
+        cudaError_t result = cudaMemsetAsync(workspace, 0, bytes, stream);
 
-        if (result != hggcSuccess) {
+        if (result != cudaSuccess) {
           return Status::kErrorInternal;
         }
       }
@@ -439,11 +439,11 @@ public:
     
     int smem_size = int(sizeof(typename GemmKernel::SharedStorage));
     if (smem_size >= (48 << 10)) {
-      hggcError_t result = hggcFuncSetAttribute(Kernel<GemmKernel>,
-                                    hggcFuncAttributeMaxDynamicSharedMemorySize,
+      cudaError_t result = cudaFuncSetAttribute(Kernel<GemmKernel>,
+                                    cudaFuncAttributeMaxDynamicSharedMemorySize,
                                     smem_size);
 
-      if (result != hggcSuccess) {
+      if (result != cudaSuccess) {
         return Status::kErrorInternal;
       }
     }
@@ -472,7 +472,7 @@ public:
   }
 
   /// Runs the kernel using initialized state.
-  Status run(hggcStream_t stream = nullptr) {
+  Status run(cudaStream_t stream = nullptr) {
 
     ThreadblockSwizzle threadblock_swizzle;
 
@@ -483,13 +483,13 @@ public:
 
     cutlass::Kernel<GemmKernel><<<grid, block, smem_size, stream>>>(params_);
 
-    hggcError_t result = hggcGetLastError();
+    cudaError_t result = cudaGetLastError();
 
-    return result == hggcSuccess ? Status::kSuccess : Status::kErrorInternal;
+    return result == cudaSuccess ? Status::kSuccess : Status::kErrorInternal;
   }
 
   /// Runs the kernel using initialized state.
-  Status operator()(hggcStream_t stream = nullptr) {
+  Status operator()(cudaStream_t stream = nullptr) {
     return run(stream);
   }
 
@@ -497,7 +497,7 @@ public:
   Status operator()(
     Arguments const &args, 
     void *workspace = nullptr, 
-    hggcStream_t stream = nullptr) {
+    cudaStream_t stream = nullptr) {
     
     Status status = initialize(args, workspace, stream);
     

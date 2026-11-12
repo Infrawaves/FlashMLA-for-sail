@@ -153,7 +153,7 @@ public:
 
   static
   cutlass::Status
-  initialize_workspace(Arguments const& args, void* workspace = nullptr, hggcStream_t stream = nullptr) {
+  initialize_workspace(Arguments const& args, void* workspace = nullptr, cudaStream_t stream = nullptr) {
     return Status::kSuccess;
   }
 

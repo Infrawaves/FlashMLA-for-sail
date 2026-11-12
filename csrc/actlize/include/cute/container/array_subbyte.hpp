@@ -535,7 +535,7 @@ void fill(array_subbyte<T,N>& a, T const& value)
 //
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/tuple>
+#include <cuda/std/tuple>
 #else
 #include <tuple>
 #endif

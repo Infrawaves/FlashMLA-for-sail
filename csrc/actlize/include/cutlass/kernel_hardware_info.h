@@ -43,7 +43,7 @@
 */
 
 #if !defined(__HGGCCC_RTC__)
-#include "hggc_runtime.h"
+#include "cuda_runtime.h"
 
 #include "cutlass/trace.h"
 #endif
@@ -64,20 +64,20 @@ struct KernelHardwareInfo {
 #if !defined(__HGGCCC_RTC__)
   static inline int
   query_device_multiprocessor_count(int device_id = 0) {
-    hggcError_t result = hggcGetDevice(&device_id);
-    if (result != hggcSuccess) {
+    cudaError_t result = cudaGetDevice(&device_id);
+    if (result != cudaSuccess) {
       CUTLASS_TRACE_HOST(
-        "  hggcGetDevice() returned error "
-        << hggcGetErrorString(result));
+        "  cudaGetDevice() returned error "
+        << cudaGetErrorString(result));
       return 0;
     }
     int multiprocessor_count;
-    result = hggcDeviceGetAttribute(&multiprocessor_count,
-      hggcDevAttrMultiProcessorCount, device_id);
-    if (result != hggcSuccess) {
+    result = cudaDeviceGetAttribute(&multiprocessor_count,
+      cudaDevAttrMultiProcessorCount, device_id);
+    if (result != cudaSuccess) {
       CUTLASS_TRACE_HOST(
-        "  hggcDeviceGetAttribute() returned error "
-        << hggcGetErrorString(result));
+        "  cudaDeviceGetAttribute() returned error "
+        << cudaGetErrorString(result));
       return 0;
     }
     return multiprocessor_count;

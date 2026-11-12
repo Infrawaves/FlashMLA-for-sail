@@ -62,7 +62,7 @@ struct global_load;
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if HGGCRT_VERSION >= 11040 && defined(__HGGC_ARCH__) && (__HGGC_ARCH__ >= 100)
+#if CUDART_VERSION >= 11040 && defined(__HGGC_ARCH__) && (__HGGC_ARCH__ >= 100)
   #define CUTLASS_ENABLE_L2_PREFETCH 1
 #else
   #define CUTLASS_ENABLE_L2_PREFETCH 0

@@ -36,7 +36,7 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/cassert>
+#include <cuda/std/cassert>
 #else
 #include <assert.h>
 #endif
@@ -50,7 +50,7 @@
 #include "cutlass/quaternion.h"
 #include "cutlass/functional.h"
 #include "cutlass/gemm/gemm.h"
-#include <hggc_fp16.h>
+#include <cuda_fp16.h>
 
 #define CUTLASS_ARCH_MMA_PPU0010_SUPPORTED
 

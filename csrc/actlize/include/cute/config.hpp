@@ -67,7 +67,7 @@
 #endif
 
 // __grid_constant__ was introduced in HGGC 11.7.
-#if HGGCRT_VERSION >= 11070
+#if CUDART_VERSION >= 11070
 #  define CUTE_GRID_CONSTANT_SUPPORTED
 #endif
 
@@ -101,7 +101,7 @@
 #endif
 
 #if defined(__HGGCCC_RTC__)
-#define CUTE_STL_NAMESPACE hggc::std
+#define CUTE_STL_NAMESPACE cuda::std
 #define CUTE_STL_NAMESPACE_IS_HGGC_STD
 #else
 #define CUTE_STL_NAMESPACE std
@@ -112,7 +112,7 @@
 //
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/cassert>
+#include <cuda/std/cassert>
 #else
 #include <cassert>
 #endif

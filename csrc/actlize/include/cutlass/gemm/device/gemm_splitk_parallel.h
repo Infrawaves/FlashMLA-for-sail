@@ -333,7 +333,7 @@ public:
   }
 
   /// Runs the kernel using initialized state.
-  Status run(hggcStream_t stream = nullptr) {
+  Status run(cudaStream_t stream = nullptr) {
 
     //
     // Launch GEMM kernel
@@ -344,26 +344,26 @@ public:
     dim3 grid = threadblock_swizzle.get_grid_shape(gemm_params_.grid_tiled_shape);
     dim3 block(GemmKernel::kThreadCount, 1, 1);
 
-    hggcError_t result;
+    cudaError_t result;
 
     int smem_size = int(sizeof(typename GemmKernel::SharedStorage));
     if (smem_size >= (48 << 10)) {
 
-      result = hggcFuncSetAttribute(
+      result = cudaFuncSetAttribute(
         Kernel<GemmKernel>,
-        hggcFuncAttributeMaxDynamicSharedMemorySize,
+        cudaFuncAttributeMaxDynamicSharedMemorySize,
         smem_size);
 
-      if (result != hggcSuccess) {
+      if (result != cudaSuccess) {
         return Status::kErrorInternal;
       }
     }
 
     Kernel<GemmKernel><<<grid, block, smem_size, stream>>>(gemm_params_);
 
-    result = hggcGetLastError();
+    result = cudaGetLastError();
 
-    if (result != hggcSuccess) {
+    if (result != cudaSuccess) {
       return Status::kErrorInternal;
     }
 
@@ -376,17 +376,17 @@ public:
 
     Kernel<ReductionKernel><<< grid, block, 0, stream >>>(reduction_params_);
 
-    result = hggcGetLastError();
+    result = cudaGetLastError();
 
-    if (result != hggcSuccess) {
+    if (result != cudaSuccess) {
       return Status::kErrorInternal;
     }
 
-    return result == hggcSuccess ? Status::kSuccess : Status::kErrorInternal;
+    return result == cudaSuccess ? Status::kSuccess : Status::kErrorInternal;
   }
 
   /// Runs the kernel using initialized state.
-  Status operator()(hggcStream_t stream = nullptr) {
+  Status operator()(cudaStream_t stream = nullptr) {
     return run(stream);
   }
 
@@ -394,7 +394,7 @@ public:
   Status operator()(
     Arguments const &args, 
     void *workspace = nullptr, 
-    hggcStream_t stream = nullptr) {
+    cudaStream_t stream = nullptr) {
     
     Status status = initialize(args, workspace);
     
@@ -602,13 +602,13 @@ public:
   }
 
   /// Runs the kernel using initialized state.
-  Status run(hggcStream_t stream = nullptr) {
+  Status run(cudaStream_t stream = nullptr) {
 
     return underlying_operator_.run(stream);
   }
 
   /// Runs the kernel using initialized state.
-  Status operator()(hggcStream_t stream = nullptr) {
+  Status operator()(cudaStream_t stream = nullptr) {
     return run(stream);
   }
 
@@ -616,7 +616,7 @@ public:
   Status operator()(
     Arguments const &args, 
     void *workspace = nullptr, 
-    hggcStream_t stream = nullptr) {
+    cudaStream_t stream = nullptr) {
     
     Status status = initialize(args, workspace, stream);
     

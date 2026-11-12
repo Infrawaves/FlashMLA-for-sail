@@ -208,7 +208,7 @@ public:
   }
 
   static cutlass::Status
-  initialize_workspace(Arguments const& args, void* workspace = nullptr, hggcStream_t stream = nullptr) {
+  initialize_workspace(Arguments const& args, void* workspace = nullptr, cudaStream_t stream = nullptr) {
     Status status = Status::kSuccess;
     uint8_t* workspace_ptr = reinterpret_cast<uint8_t*>(workspace);
     size_t workspace_offset = 0;

@@ -36,7 +36,7 @@
 
 #pragma once
 
-#include <hggc_fp16.h>
+#include <cuda_fp16.h>
 
 #include "cutlass/cutlass.h"
 #include "cutlass/numeric_types.h"
@@ -211,8 +211,8 @@ struct ArrayMaximum<half_t, ElementsPerAccess> {
 template <int ElementsPerAccess>
 struct ArrayMaximum<bfloat16_t, ElementsPerAccess> {
 
-  using NvType   = __ppu_bfloat16;
-  using NvTypeV2 = __ppu_bfloat162;
+  using NvType   = __nv_bfloat16;
+  using NvTypeV2 = __nv_bfloat162;
 
   CUTLASS_DEVICE
   Array<bfloat16_t, ElementsPerAccess> operator()(
@@ -337,8 +337,8 @@ struct ReluConditional<bfloat16_t, ElementsPerAccess> {
     Array<bfloat16_t, ElementsPerAccess> const &fragment,
     bfloat16_t threshold) const {
 
-    __ppu_bfloat16 y = reinterpret_cast<__ppu_bfloat16 const &>(threshold);
-    __ppu_bfloat16 const *x = reinterpret_cast<__ppu_bfloat16 const *>(fragment.raw_data());
+    __nv_bfloat16 y = reinterpret_cast<__nv_bfloat16 const &>(threshold);
+    __nv_bfloat16 const *x = reinterpret_cast<__nv_bfloat16 const *>(fragment.raw_data());
 
     CUTLASS_PRAGMA_UNROLL
     for (int i = 0; i < ElementsPerAccess; ++i) {

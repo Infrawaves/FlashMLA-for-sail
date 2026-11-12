@@ -105,7 +105,7 @@ public:
 
   template <class ProblemShape, class ElementAccumulator>
   static cutlass::Status
-  initialize_workspace(Arguments const&, void*, hggcStream_t, ProblemShape, KernelHardwareInfo const&,
+  initialize_workspace(Arguments const&, void*, cudaStream_t, ProblemShape, KernelHardwareInfo const&,
     uint32_t, const uint32_t = 1) {
     return Status::kSuccess;
   }

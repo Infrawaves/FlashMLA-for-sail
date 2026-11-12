@@ -49,7 +49,7 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/cstdint>
+#include <cuda/std/cstdint>
 #else
 #include <cstdint>
 #endif

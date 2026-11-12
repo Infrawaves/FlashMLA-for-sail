@@ -159,7 +159,7 @@ static_assert(is_valid_tile_scheduler, "PPU0010 kernel does not support speciali
 
   static
   cutlass::Status
-  initialize_workspace(Arguments const& args, void* workspace = nullptr, hggcStream_t stream = nullptr) {
+  initialize_workspace(Arguments const& args, void* workspace = nullptr, cudaStream_t stream = nullptr) {
     cutlass::Status status = Status::kSuccess;
 
     return status;

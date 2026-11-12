@@ -238,34 +238,34 @@ public:
     int smem_size = GemmKernel::SharedStorageSize;
 
     // first, account for dynamic smem capacity if needed
-    hggcError_t result;
+    cudaError_t result;
     if (smem_size >= (48 << 10)) {
       CUTLASS_TRACE_HOST("  Setting smem size to " << smem_size);
-      result = hggcFuncSetAttribute(
+      result = cudaFuncSetAttribute(
           device_kernel<GemmKernel>,
-          hggcFuncAttributeMaxDynamicSharedMemorySize,
+          cudaFuncAttributeMaxDynamicSharedMemorySize,
           smem_size);
-      if (hggcSuccess != result) {
-        result = hggcGetLastError(); // to clear the error bit
+      if (cudaSuccess != result) {
+        result = cudaGetLastError(); // to clear the error bit
         CUTLASS_TRACE_HOST(
-          "  hggcFuncSetAttribute() returned error: "
-          << hggcGetErrorString(result));
+          "  cudaFuncSetAttribute() returned error: "
+          << cudaGetErrorString(result));
         return -1;
       }
     }
 
     // query occupancy after setting smem size
-    result = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+    result = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &max_active_blocks,
         device_kernel<GemmKernel>,
         GemmKernel::MaxThreadsPerBlock,
         smem_size);
 
-    if (hggcSuccess != result) {
-      result = hggcGetLastError(); // to clear the error bit
+    if (cudaSuccess != result) {
+      result = cudaGetLastError(); // to clear the error bit
       CUTLASS_TRACE_HOST(
-        "  hggcOccupancyMaxActiveBlocksPerMultiprocessor() returned error: "
-        << hggcGetErrorString(result));
+        "  cudaOccupancyMaxActiveBlocksPerMultiprocessor() returned error: "
+        << cudaGetErrorString(result));
       return -1;
     }
 
@@ -278,7 +278,7 @@ public:
   initialize(
     Arguments const& args,
     void* workspace = nullptr,
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr) {
 
     CUTLASS_TRACE_HOST("GemmUniversal::initialize() - workspace "
@@ -308,13 +308,13 @@ public:
 
       if (smem_size >= (48 << 10)) {
         CUTLASS_TRACE_HOST("  Setting smem size to " << smem_size);
-        hggcError_t result = hggcFuncSetAttribute(
+        cudaError_t result = cudaFuncSetAttribute(
             device_kernel<GemmKernel>,
-            hggcFuncAttributeMaxDynamicSharedMemorySize,
+            cudaFuncAttributeMaxDynamicSharedMemorySize,
             smem_size);
-        if (hggcSuccess != result) {
-          result = hggcGetLastError(); // to clear the error bit
-          CUTLASS_TRACE_HOST("  hggcFuncSetAttribute() returned error: " << hggcGetErrorString(result));
+        if (cudaSuccess != result) {
+          result = cudaGetLastError(); // to clear the error bit
+          CUTLASS_TRACE_HOST("  cudaFuncSetAttribute() returned error: " << cudaGetErrorString(result));
           return Status::kErrorInternal;
         }
       }
@@ -341,7 +341,7 @@ public:
   /// Supplied params struct must be construct by calling GemmKernel::to_underling_arguments()
   static Status
   run(Params& params,
-      hggcStream_t stream = nullptr,
+      cudaStream_t stream = nullptr,
       HggcHostAdapter *hggc_adapter = nullptr) {
 
     CUTLASS_TRACE_HOST("GemmUniversal::run()");
@@ -373,8 +373,8 @@ public:
       device_kernel<GemmKernel><<<grid, block, smem_size, stream>>>(params);
     }
 
-    hggcError_t result = hggcGetLastError();
-    if (hggcSuccess == result && Status::kSuccess == launch_result) {
+    cudaError_t result = cudaGetLastError();
+    if (cudaSuccess == result && Status::kSuccess == launch_result) {
       return Status::kSuccess;
     }
     else {
@@ -392,7 +392,7 @@ public:
   run(
     Arguments const& args,
     void* workspace = nullptr,
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr
   ) {
 
@@ -409,20 +409,20 @@ public:
   operator()(
     Arguments const& args,
     void* workspace = nullptr,
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr) {
     return run(args, workspace, stream, hggc_adapter);
   }
 
   /// Overload that allows a user to re-launch the same kernel without updating internal params struct.
   Status
-  run(hggcStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr) {
+  run(cudaStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr) {
     return run(params_, stream, hggc_adapter);
   }
 
   /// Overload that allows a user to re-launch the same kernel without updating internal params struct.
   Status
-  operator()(hggcStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr) {
+  operator()(cudaStream_t stream = nullptr, HggcHostAdapter *hggc_adapter = nullptr) {
     return run(params_, stream, hggc_adapter);
   }
 };
@@ -548,7 +548,7 @@ public:
   Status initialize(
     Arguments const &args,
     void *workspace = nullptr,
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr
   ) {
 
@@ -563,7 +563,7 @@ public:
 
   /// Runs the kernel using initialized state.
   Status run(
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr) {
 
     return underlying_operator_.run(stream, hggc_adapter);
@@ -571,7 +571,7 @@ public:
 
   /// Runs the kernel using initialized state.
   Status operator()(
-    hggcStream_t stream = nullptr, 
+    cudaStream_t stream = nullptr, 
     HggcHostAdapter *hggc_adapter = nullptr) {
 
     return run(stream);
@@ -581,7 +581,7 @@ public:
   Status operator()(
     Arguments const &args,
     void *workspace = nullptr,
-    hggcStream_t stream = nullptr,
+    cudaStream_t stream = nullptr,
     HggcHostAdapter *hggc_adapter = nullptr) {
 
     Status status = initialize(args, workspace, stream, hggc_adapter);

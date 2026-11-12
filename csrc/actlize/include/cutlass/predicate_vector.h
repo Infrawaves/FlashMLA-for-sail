@@ -37,8 +37,8 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/cassert>
-#include <hggc/std/cstdint>
+#include <cuda/std/cassert>
+#include <cuda/std/cstdint>
 #else
 #include <assert.h>
 #include <stdint.h>

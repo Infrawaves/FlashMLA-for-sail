@@ -52,7 +52,7 @@
 // but do _not_ include references like int& or float&.
 // (See std::tie for an example of a tuple of references.)
 //
-// This is simplified over the implementations in std::, hggc::std::, and thrust:: by ignoring much of
+// This is simplified over the implementations in std::, cuda::std::, and thrust:: by ignoring much of
 //    the conversion SFINAE, special overloading, and avoiding cvref template types.
 //    Furthermore, the empty base optimization (EBO) is MORE aggressive by avoiding
 //    construction calls, and ignoring any need for unique element addresses.

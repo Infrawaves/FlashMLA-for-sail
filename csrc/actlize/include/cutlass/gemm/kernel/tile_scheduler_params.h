@@ -1116,7 +1116,7 @@ struct PersistentTileSchedulerPPUStreamKParams {
   static cutlass::Status
   initialize_workspace(
     void* workspace,
-    hggcStream_t stream,
+    cudaStream_t stream,
     BatchedGemmCoord problem_shape,
     GemmCoord tile_shape,
     GemmCoord cluster_shape,
@@ -1158,7 +1158,7 @@ struct PersistentTileSchedulerPPUStreamKParams {
   static cutlass::Status
   initialize_workspace(
     void* workspace,
-    hggcStream_t stream,
+    cudaStream_t stream,
     dim3 problem_blocks,
     uint32_t k_tiles_per_output_tile,
     GemmCoord tile_shape,

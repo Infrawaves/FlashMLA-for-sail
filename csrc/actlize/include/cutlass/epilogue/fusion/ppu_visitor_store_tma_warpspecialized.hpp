@@ -127,7 +127,7 @@ struct PPU0015AuxStore {
 
   template <class ProblemShape>
   static cutlass::Status
-  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, hggcStream_t stream) {
+  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, cudaStream_t stream) {
     return cutlass::Status::kSuccess;
   }
 
@@ -324,7 +324,7 @@ public:
 
   template <class ProblemShape>
   static cutlass::Status
-  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, hggcStream_t stream) {
+  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, cudaStream_t stream) {
     if constexpr (IsAtomic) {
       auto [M, N, K, L] = problem_shape;
       Layout mScalar_layout = make_layout(make_shape(M,N,L), args.dScalar);
@@ -492,7 +492,7 @@ public:
 
   template <class ProblemShape>
   static cutlass::Status
-  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, hggcStream_t stream) {
+  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, cudaStream_t stream) {
     if constexpr (IsAtomic) {
       auto [M, N, K, L] = problem_shape;
       Layout mRow_layout = make_layout(make_shape(M,N,L), args.dRow);
@@ -743,7 +743,7 @@ public:
 
   template <class ProblemShape>
   static cutlass::Status
-  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, hggcStream_t stream) {
+  initialize_workspace(ProblemShape const& problem_shape, Arguments const& args, void* workspace, cudaStream_t stream) {
     if constexpr (IsAtomic) {
       auto [M, N, K, L] = problem_shape;
       Layout mCol_layout = make_layout(make_shape(M,N,L), args.dCol);

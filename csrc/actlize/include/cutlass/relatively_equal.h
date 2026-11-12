@@ -59,7 +59,7 @@ CUTLASS_HOST_DEVICE
 bool relatively_equal_float(T a, T b, T epsilon, T nonzero_floor) {
   
 #if defined(__HGGCCC_RTC__)
-  using hggc::std::abs;
+  using cuda::std::abs;
 #else
   using std::abs;
 #endif

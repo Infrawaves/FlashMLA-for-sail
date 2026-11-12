@@ -268,7 +268,7 @@ public:
     /// the memory allocated to workspace is at least as large as get_workspace_size().
     Status init_workspace(
       void *workspace,
-      hggcStream_t stream = nullptr)
+      cudaStream_t stream = nullptr)
     {
       CUTLASS_TRACE_HOST("GemmUniversal::Params::Params() - problem_size: " << this->problem_size);
 

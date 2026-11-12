@@ -37,7 +37,7 @@
 #pragma once
 
 #if defined(__HGGCCC_RTC__)
-#include <hggc/std/cassert>
+#include <cuda/std/cassert>
 #else
 #include <assert.h>
 #endif
@@ -48,7 +48,7 @@
 
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
-#if HGGCRT_VERSION >= 11010
+#if CUDART_VERSION >= 11010
 
 #define CUTLASS_ARCH_SPARSE_MMA_PPU0010_SUPPORTED 1
 

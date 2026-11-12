@@ -130,13 +130,13 @@ private:
 
   /// Copy from `data` to `workspace`
   Status copy_to_workspace(void* workspace, void* data, size_t bytes) {
-    hggcError_t hggc_error = hggcMemcpy(workspace, data, bytes, hggcMemcpyHostToDevice);
-    if (hggc_error != hggcSuccess) {
-      // Call hggcGetLastError() to clear the error bit
-      hggc_error = hggcGetLastError();
+    cudaError_t hggc_error = cudaMemcpy(workspace, data, bytes, cudaMemcpyHostToDevice);
+    if (hggc_error != cudaSuccess) {
+      // Call cudaGetLastError() to clear the error bit
+      hggc_error = cudaGetLastError();
       CUTLASS_TRACE_HOST(
-          "  hggcMemcpy() returned error "
-          << hggcGetErrorString(hggc_error));
+          "  cudaMemcpy() returned error "
+          << cudaGetErrorString(hggc_error));
       return Status::kErrorInternal;
     }
 
@@ -219,35 +219,35 @@ public:
 
     CUTLASS_TRACE_HOST("  smem_size: " << smem_size << " bytes");
 
-    hggcError_t result;
+    cudaError_t result;
     if (smem_size > (48 << 10)) {
-      result = hggcFuncSetAttribute(Kernel<BaseKernel>,
-                                    hggcFuncAttributeMaxDynamicSharedMemorySize,
+      result = cudaFuncSetAttribute(Kernel<BaseKernel>,
+                                    cudaFuncAttributeMaxDynamicSharedMemorySize,
                                     smem_size);
 
-      if (result != hggcSuccess) {
-        // Call hggcGetLastError() to clear the error bit
-        result = hggcGetLastError();
+      if (result != cudaSuccess) {
+        // Call cudaGetLastError() to clear the error bit
+        result = cudaGetLastError();
         CUTLASS_TRACE_HOST(
-          "  hggcFuncSetAttribute() returned error "
-          << hggcGetErrorString(result));
+          "  cudaFuncSetAttribute() returned error "
+          << cudaGetErrorString(result));
         return -1;
       }
     }
 
     int max_active_blocks = -1;
-    result = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+    result = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &max_active_blocks,
         Kernel<BaseKernel>,
         BaseKernel::kThreadCount,
         smem_size);
 
-    if (result != hggcSuccess) {
-      // Call hggcGetLastError() to clear the error bit
-      result = hggcGetLastError();
+    if (result != cudaSuccess) {
+      // Call cudaGetLastError() to clear the error bit
+      result = cudaGetLastError();
       CUTLASS_TRACE_HOST(
-        "  hggcOccupancyMaxActiveBlocksPerMultiprocessor() returned error "
-        << hggcGetErrorString(result));
+        "  cudaOccupancyMaxActiveBlocksPerMultiprocessor() returned error "
+        << cudaGetErrorString(result));
       return -1;
     }
 
@@ -293,22 +293,22 @@ public:
     // Determine the number of blocks that would be launched to fill up a single
     // wave on the PPU with each CU having maximum occupancy.
     int device_idx;
-    hggcError_t result = hggcGetDevice(&device_idx);
-    if (result != hggcSuccess) {
-      // Call hggcGetLastError() to clear the error bit
-      result = hggcGetLastError();
-      CUTLASS_TRACE_HOST("  hggcGetDevice() returned error "
-          << hggcGetErrorString(result));
+    cudaError_t result = cudaGetDevice(&device_idx);
+    if (result != cudaSuccess) {
+      // Call cudaGetLastError() to clear the error bit
+      result = cudaGetLastError();
+      CUTLASS_TRACE_HOST("  cudaGetDevice() returned error "
+          << cudaGetErrorString(result));
       return 0;
     }
 
     int multiprocessor_count;
-    result = hggcDeviceGetAttribute(&multiprocessor_count,
-      hggcDevAttrMultiProcessorCount, device_idx);
-    if (result != hggcSuccess) {
+    result = cudaDeviceGetAttribute(&multiprocessor_count,
+      cudaDevAttrMultiProcessorCount, device_idx);
+    if (result != cudaSuccess) {
       CUTLASS_TRACE_HOST(
-        "  hggcDeviceGetAttribute() returned error "
-        << hggcGetErrorString(result));
+        "  cudaDeviceGetAttribute() returned error "
+        << cudaGetErrorString(result));
       return 0;
     }
 
@@ -349,7 +349,7 @@ public:
 
 
   /// Initializes GEMM state from arguments.
-  Status initialize(Arguments const &args, void *workspace = nullptr, hggcStream_t stream = nullptr) {
+  Status initialize(Arguments const &args, void *workspace = nullptr, cudaStream_t stream = nullptr) {
 
     CUTLASS_TRACE_HOST("BaseGrouped::initialize() - workspace "
       << workspace << ", stream: " << (stream ? "non-null" : "null"));
@@ -377,11 +377,11 @@ public:
     int smem_size = int(sizeof(typename BaseKernel::SharedStorage));
 
     if (smem_size >= (48 << 10)) {
-      hggcError_t result = hggcFuncSetAttribute(Kernel<BaseKernel>,
-                                    hggcFuncAttributeMaxDynamicSharedMemorySize,
+      cudaError_t result = cudaFuncSetAttribute(Kernel<BaseKernel>,
+                                    cudaFuncAttributeMaxDynamicSharedMemorySize,
                                     smem_size);
 
-      if (result != hggcSuccess) {
+      if (result != cudaSuccess) {
         return Status::kErrorInternal;
       }
     }
@@ -414,7 +414,7 @@ public:
   }
 
   /// Runs the kernel using initialized state.
-  Status run(hggcStream_t stream = nullptr) {
+  Status run(cudaStream_t stream = nullptr) {
 
     //
     // Configure grid and block dimensions
@@ -439,10 +439,10 @@ public:
     //
     // Query for errors
     //
-    hggcError_t result = hggcGetLastError();
+    cudaError_t result = cudaGetLastError();
 
-    if (result != hggcSuccess) {
-      CUTLASS_TRACE_HOST("  grid launch failed with error " << hggcGetErrorString(result));
+    if (result != cudaSuccess) {
+      CUTLASS_TRACE_HOST("  grid launch failed with error " << cudaGetErrorString(result));
       return Status::kErrorInternal;
     }
 
@@ -450,7 +450,7 @@ public:
   }
 
   /// Runs the kernel using initialized state.
-  Status operator()(hggcStream_t stream = nullptr) {
+  Status operator()(cudaStream_t stream = nullptr) {
     return run(stream);
   }
 
@@ -458,7 +458,7 @@ public:
   Status operator()(
     Arguments const &args,
     void *workspace,
-    hggcStream_t stream = nullptr) {
+    cudaStream_t stream = nullptr) {
 
     Status status = initialize(args, workspace, stream);
 
