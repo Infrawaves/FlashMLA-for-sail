@@ -4,6 +4,7 @@
 
 #include "api/common.h"
 #include "sparse/fused_v41_wi.cuh"
+#include "decode/sparse/fused_v41_splitkv.cuh"
 #include "prefill/sparse/sparse_prefill_std.cuh"
 
 namespace flashmla::fused_norm_rope_attn_rope_cast_fwd::core_attn {
@@ -420,6 +421,11 @@ struct FusedSmallPrefillTraits
         cute::copy(copy_c, src, dst);
         __syncthreads();
 
+        if (p.per_token_scale) {
+            splitkv::store_per_token_output<KT, H8, Norm>(
+                p, s_q_idx, m_block * KT::kBlockM, smem, staged, acc_o, valid);
+            return;
+        }
         const int position = __ldg(p.token_positions + s_q_idx);
         const float* rope = p.cos_sin_cache + int64_t(position) * 64;
         if constexpr (H8) {
