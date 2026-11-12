@@ -1,6 +1,6 @@
 #pragma once
 
-#include <hggc_runtime.h>
+#include <cuda_runtime.h>
 
 namespace flashmla::sparse_native_fp8 {
 
@@ -21,7 +21,7 @@ struct AttentionParams {
     int dim{}, queries{}, heads{}, width{}, kvrows{};
     int qst{}, qsh{};
     bool qbf{}, trusted_full_topk{};
-    hggcStream_t stream{};
+    cudaStream_t stream{};
     int lse_queries{}; // Zero: flat base-2 LSE; positive: paged natural LSE.
 
     const void *extra{};
@@ -52,7 +52,7 @@ struct MergeParams {
     int tokens{};
     int splits{};
     int heads{};
-    hggcStream_t stream{};
+    cudaStream_t stream{};
     int lse_queries{};
     const float *partial_maxima{};
     float *maxima{};
@@ -83,8 +83,8 @@ void run_native_fp8_attention_merge(const flashmla::sparse_native_fp8::MergePara
 #include "ppu/sparse_native_fp8_arch.h"
 #include "sparse_native_fp8_config.h"
 #include <hgrt/hggc_extend_device_functions.h>
-#include <hggc_bf16.h>
-#include <hggc_fp8.h>
+#include <cuda_bf16.h>
+#include <cuda_fp8.h>
 #include <cute/tensor.hpp>
 #include <cutlass/cutlass.h>
 #include <cutlass/numeric_conversion.h>
@@ -106,12 +106,12 @@ struct DeviceProperties {
 
 inline const DeviceProperties *device_properties() {
     int device = -1;
-    if (hggcGetDevice(&device) != hggcSuccess)
+    if (cudaGetDevice(&device) != cudaSuccess)
         return nullptr;
     static thread_local DeviceProperties cached;
     if (cached.id != device) {
-        hggcDeviceProp props;
-        if (hggcGetDeviceProperties(&props, device) != hggcSuccess ||
+        cudaDeviceProp props;
+        if (cudaGetDeviceProperties(&props, device) != cudaSuccess ||
             props.major != 8 || props.minor != 9)
             return nullptr;
         cached = {device, props.multiProcessorCount, props.maxThreadsPerBlock,
@@ -135,8 +135,8 @@ __device__ __forceinline__ uint16_t pack_e4m3_pair(float2 value) {
 
 // Preserve the SDK's scalar packing for BF16 Q/KV compatibility inputs;
 // changing this sequence also changes code generation in decode kernels.
-__device__ __forceinline__ uint16_t pack_e4m3_pair(__ppu_bfloat162_raw value) {
-    return __hg_fp8x2_e4m3(__ppu_bfloat162(value)).__x;
+__device__ __forceinline__ uint16_t pack_e4m3_pair(__nv_bfloat162_raw value) {
+    return __nv_fp8x2_e4m3(__nv_bfloat162(value)).__x;
 }
 
 // Convert one aligned BF16 Q vector directly into the shared E4M3 tile.
@@ -145,11 +145,11 @@ __device__ __forceinline__ cute::uint128_t load_bf16_as_fp8_16(const void *sourc
     const auto *vectors = static_cast<const cute::uint128_t *>(source);
     const cute::uint128_t low = vectors[0], high = vectors[1];
     cute::uint128_t packed;
-    auto *pairs = reinterpret_cast<__hg_fp8x2_storage_t *>(&packed);
+    auto *pairs = reinterpret_cast<__nv_fp8x2_storage_t *>(&packed);
     CUTE_UNROLL
     for (int j = 0; j < 4; ++j) {
-        pairs[j] = pack_e4m3_pair(reinterpret_cast<const __ppu_bfloat162_raw *>(&low)[j]);
-        pairs[j + 4] = pack_e4m3_pair(reinterpret_cast<const __ppu_bfloat162_raw *>(&high)[j]);
+        pairs[j] = pack_e4m3_pair(reinterpret_cast<const __nv_bfloat162_raw *>(&low)[j]);
+        pairs[j + 4] = pack_e4m3_pair(reinterpret_cast<const __nv_bfloat162_raw *>(&high)[j]);
     }
     return packed;
 }
@@ -268,7 +268,7 @@ __device__ __forceinline__ void quantize_probability(const Scores &acc_s, float 
         float v0 = exp2f(fmaf(acc_s(e), qk_scale_log2, bias));
         float v1 = exp2f(fmaf(acc_s(e + 1), qk_scale_log2, bias));
         sm[s] += v0 + v1; // sums already carry P_SCALE
-        const __hg_fp8x2_storage_t packed =
+        const __nv_fp8x2_storage_t packed =
             flashmla::sparse_native_fp8::pack_e4m3_pair(make_float2(v0, v1));
         store_pair(e, packed);
     }
@@ -281,7 +281,7 @@ __device__ __forceinline__ void quantize_probability(Scores &acc_s, const QKSlic
     Tensor cP = tqk.partition_C(sPt);
     auto store_pair = [&](int e, uint16_t packed) {
         // Adjacent probabilities share a 16-byte swizzle granule.
-        *reinterpret_cast<__hg_fp8x2_storage_t *>(&cP(e)) = packed;
+        *reinterpret_cast<__nv_fp8x2_storage_t *>(&cP(e)) = packed;
     };
     quantize_probability<Traits, ScoreValues>(acc_s, sm, mx0, mx1, qk_scale_log2, store_pair);
 #pragma unroll
@@ -813,7 +813,7 @@ void launch(const flashmla::sparse_native_fp8::AttentionParams &params) {
     constexpr int Shared = 3 * 64 * D + 64 * 64 + 2176 * 4 + 11 * 64 * 4 + 256;
     auto kernel = flash_fwd_sparse_fp8_std_kernel<64, D, Trusted, Threads, Prefix, false, 64, 64,
                                                   false, GatherLanes, false, GuardGatherReuse, QBF16>;
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, Shared);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, Shared);
     kernel<<<dim3(int64_t(params.queries) * (params.heads / 64)), Threads, Shared, params.stream>>>(
         params.q, static_cast<const E4M3 *>(params.kv), params.idx,
         static_cast<cutlass::bfloat16_t *>(params.out), params.scale, (params.width / 64),
@@ -1296,7 +1296,7 @@ struct Pipeline {
                 auto *dst = &cp(e);
                 if constexpr (PairedV)
                     dst = &sp(get<0>(pxy(e)), PairedVLoad::column(int(get<1>(pxy(e)))));
-                *reinterpret_cast<__hg_fp8x2_storage_t *>(dst) =
+                *reinterpret_cast<__nv_fp8x2_storage_t *>(dst) =
                     flashmla::sparse_native_fp8::pack_e4m3_pair(make_float2(a, b));
             }
             CUTE_UNROLL

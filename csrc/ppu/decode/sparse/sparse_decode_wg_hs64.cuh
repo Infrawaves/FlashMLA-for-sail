@@ -16,8 +16,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
-#include <hggc_runtime.h>
-#include <hggc_pipeline.h>
+#include <cuda_runtime.h>
+#include <cuda_pipeline.h>
 
 #include <cute/tensor.hpp>
 #include <cutlass/cutlass.h>
@@ -3195,17 +3195,17 @@ __forceinline__ __device__ void hs64_store_v41_fp8_tile(
             *reinterpret_cast<const flash::fp8_e8m0*>(&raw);
         scale = float(e8m0);
     }
-    const __ppu_bfloat162 scale2 = __float2bfloat162_rn(scale);
+    const __nv_bfloat162 scale2 = __float2bfloat162_rn(scale);
     const uint32_t words[4] = {packed.x, packed.y, packed.z, packed.w};
     uint32_t output_words[8];
     #pragma unroll
     for (int i = 0; i < 4; ++i) {
-        const __hg_fp8x4_e4m3 vals4 =
-            *reinterpret_cast<const __hg_fp8x4_e4m3*>(&words[i]);
+        const __nv_fp8x4_e4m3 vals4 =
+            *reinterpret_cast<const __nv_fp8x4_e4m3*>(&words[i]);
         const float4 vals = (float4)vals4;
-        const __ppu_bfloat162 lo = __hmul2(
+        const __nv_bfloat162 lo = __hmul2(
             __float22bfloat162_rn({vals.x, vals.y}), scale2);
-        const __ppu_bfloat162 hi = __hmul2(
+        const __nv_bfloat162 hi = __hmul2(
             __float22bfloat162_rn({vals.z, vals.w}), scale2);
         output_words[i * 2] = *reinterpret_cast<const uint32_t*>(&lo);
         output_words[i * 2 + 1] = *reinterpret_cast<const uint32_t*>(&hi);
@@ -3231,17 +3231,17 @@ __forceinline__ __device__ void hs64_store_v41_fp8_from_stage(
             *reinterpret_cast<const flash::fp8_e8m0*>(&raw);
         scale = float(e8m0);
     }
-    const __ppu_bfloat162 scale2 = __float2bfloat162_rn(scale);
+    const __nv_bfloat162 scale2 = __float2bfloat162_rn(scale);
     const uint32_t words[4] = {packed.x, packed.y, packed.z, packed.w};
     uint32_t output_words[8];
     #pragma unroll
     for (int i = 0; i < 4; ++i) {
-        const __hg_fp8x4_e4m3 vals4 =
-            *reinterpret_cast<const __hg_fp8x4_e4m3*>(&words[i]);
+        const __nv_fp8x4_e4m3 vals4 =
+            *reinterpret_cast<const __nv_fp8x4_e4m3*>(&words[i]);
         const float4 vals = (float4)vals4;
-        const __ppu_bfloat162 lo = __hmul2(
+        const __nv_bfloat162 lo = __hmul2(
             __float22bfloat162_rn({vals.x, vals.y}), scale2);
-        const __ppu_bfloat162 hi = __hmul2(
+        const __nv_bfloat162 hi = __hmul2(
             __float22bfloat162_rn({vals.z, vals.w}), scale2);
         output_words[i * 2] = *reinterpret_cast<const uint32_t*>(&lo);
         output_words[i * 2 + 1] = *reinterpret_cast<const uint32_t*>(&hi);
@@ -3278,11 +3278,11 @@ __forceinline__ __device__ void hs64_store_v41_fp4_tile(
     const int dst_dim = dst_tile * 64 + lane * 8;
     float scale = 0.0f;
     if (valid) {
-        const __hg_fp8_e4m3 e4m3 =
-            *reinterpret_cast<const __hg_fp8_e4m3*>(&scale_raw);
+        const __nv_fp8_e4m3 e4m3 =
+            *reinterpret_cast<const __nv_fp8_e4m3*>(&scale_raw);
         scale = float(e4m3);
     }
-    const __ppu_bfloat162 scale2 = __float2bfloat162_rn(scale);
+    const __nv_bfloat162 scale2 = __float2bfloat162_rn(scale);
     uint32_t output_words[8];
     const uint32_t words[2] = {uint32_t(packed), uint32_t(packed >> 32)};
     #pragma unroll
@@ -3292,8 +3292,8 @@ __forceinline__ __device__ void hs64_store_v41_fp4_tile(
         #pragma unroll
         for (int i = 0; i < 4; ++i) {
             const uint32_t values = decoded[i];
-            const __ppu_bfloat162 scaled = __hmul2(
-                *reinterpret_cast<const __ppu_bfloat162*>(&values), scale2);
+            const __nv_bfloat162 scaled = __hmul2(
+                *reinterpret_cast<const __nv_bfloat162*>(&values), scale2);
             output_words[half * 4 + i] = *reinterpret_cast<const uint32_t*>(&scaled);
         }
     }
@@ -6122,7 +6122,7 @@ template<int HeadDim, bool AllowExtra = true, int Arch = 89,
          bool IsV41FP8 = false, bool IsExtraFP4 = false>
 static void run_flash_sparse_decode_wg_kernel_hs64_hdim(
     Flash_fwd_params &params,
-    hggcStream_t stream)
+    cudaStream_t stream)
 {
     static_assert(HeadDim == 512 || HeadDim == 576);
     using T = Hs64Traits<HeadDim, /*GuardIndices=*/AllowExtra,
@@ -6136,14 +6136,14 @@ static void run_flash_sparse_decode_wg_kernel_hs64_hdim(
         std::max(sizeof(typename T::SharedMemoryPlan),
                  sizeof(typename T::SharedMemoryOutPut));
 
-    hggcFuncSetAttribute(
-        mla_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+    cudaFuncSetAttribute(
+        mla_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
 
     const dim3 grid(params.q_orig, params.ngroups / T::kBlockM, params.num_sm_parts);
 
     int ctas_per_sm = 0;
-    const hggcError occupancy_status =
-        hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+    const cudaError occupancy_status =
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(
             &ctas_per_sm, mla_kernel, T::NUM_THREADS, smem_size);
     (void)occupancy_status;
 
@@ -6157,8 +6157,8 @@ static void run_flash_sparse_decode_wg_kernel_hs64_hdim(
                    HeadDim, int(!AllowExtra), int(T::kGuardIndices));
         }
 
-        hggcFuncAttributes attr;
-        hggcFuncGetAttributes(&attr, mla_kernel);
+        cudaFuncAttributes attr;
+        cudaFuncGetAttributes(&attr, mla_kernel);
         int sm_count = get_num_sm(get_current_device());
         if (sm_count == 64) {
             sm_count = 20;
@@ -6176,11 +6176,11 @@ static void run_flash_sparse_decode_wg_kernel_hs64_hdim(
                    float(sm_count * ctas_per_sm), Arch);
     }
 
-    hggcLaunchAttribute kernel_attributes[1];
+    cudaLaunchAttribute kernel_attributes[1];
     kernel_attributes[0].id =
-        hggcLaunchAttributeProgrammaticStreamSerialization;
+        cudaLaunchAttributeProgrammaticStreamSerialization;
     kernel_attributes[0].val.programmaticStreamSerializationAllowed = 1;
-    hggcLaunchConfig_t kernel_config = {
+    cudaLaunchConfig_t kernel_config = {
         grid,
         dim3(T::NUM_THREADS, 1, 1),
         smem_size,
@@ -6188,7 +6188,7 @@ static void run_flash_sparse_decode_wg_kernel_hs64_hdim(
         kernel_attributes,
         1
     };
-    hggcLaunchKernelEx(&kernel_config, mla_kernel, params);
+    cudaLaunchKernelEx(&kernel_config, mla_kernel, params);
     CHECK_CUDA_KERNEL_LAUNCH();
 
     ::run_flash_mla_combine_kernel<cutlass::bfloat16_t>(params, stream);
@@ -6197,7 +6197,7 @@ static void run_flash_sparse_decode_wg_kernel_hs64_hdim(
 template<int Arch>
 static void run_flash_sparse_decode_wg_kernel_hs64_arch(
     Flash_fwd_params &params,
-    hggcStream_t stream)
+    cudaStream_t stream)
 {
     FLASH_ASSERT(params.ngroups % 128 == 64);
     // Without per-batch lengths or extra KV, 128-aligned topk makes every
@@ -6226,7 +6226,7 @@ static void run_flash_sparse_decode_wg_kernel_hs64_arch(
 }
 
 void run_flash_sparse_decode_wg_kernel_hs64(
-    Flash_fwd_params &params, hggcStream_t stream,
+    Flash_fwd_params &params, cudaStream_t stream,
     bool is_v41_fp8, bool is_extra_fp4) {
     if (is_v41_fp8) {
         FLASH_ASSERT(params.d == 512 && params.ngroups == 64 && params.q_orig > 1);
@@ -6255,8 +6255,8 @@ static void launch_sparse_prefill_hs64(SparsePrefillParams &params) {
     constexpr size_t smem_size =
         std::max(sizeof(typename T::SharedMemoryPlan),
                  sizeof(typename T::SharedMemoryOutPut));
-    hggcFuncSetAttribute(
-        kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+    cudaFuncSetAttribute(
+        kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
     int grid_q = kHs64PrefillGroupedQueries<T>
         ? cute::ceil_div(params.s_q, kHs64PrefillQueriesPerCta)
         : params.s_q;
@@ -6280,8 +6280,8 @@ static void launch_sparse_prefill_hs64_four_queries(SparsePrefillParams &params)
     constexpr size_t smem_size =
         std::max(sizeof(typename T::SharedMemoryPlan),
                  sizeof(typename T::SharedMemoryOutPut));
-    hggcFuncSetAttribute(
-        kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+    cudaFuncSetAttribute(
+        kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
     const int sm_count = get_num_sm(get_current_device());
     const int64_t four_query_grid = (static_cast<int64_t>(params.s_q) + 3) / 4;
     const int grid_q = static_cast<int>(std::min(

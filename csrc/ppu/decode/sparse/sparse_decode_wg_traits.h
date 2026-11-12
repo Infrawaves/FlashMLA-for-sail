@@ -14,8 +14,8 @@
 #include <cutlass/numeric_types.h>
 #include <cutlass/barrier.h>
 
-#include <hggc_pipeline.h>
-#include <hggc_awbarrier.h>
+#include <cuda_pipeline.h>
+#include <cuda_awbarrier.h>
 
 #include "decode/dense/traits.h"
 

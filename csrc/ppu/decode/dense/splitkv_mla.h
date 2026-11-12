@@ -17,17 +17,17 @@
 #include "ppuxx/decode/combine/combine.h"
 
 #ifdef __HGGCCC__
-#include <hggc_ad.h>
+#include <cuda_ad.h>
 #endif
 
 template<typename InputT, int Arch>
-void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, hggcStream_t stream);
+void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, cudaStream_t stream);
 
 template<typename Kernel_traits, bool CrossCut = false, bool PageLargerThankBlockN = false>
-void run_flash_splitkv_fwd(Flash_fwd_params &params, hggcStream_t stream);
+void run_flash_splitkv_fwd(Flash_fwd_params &params, cudaStream_t stream);
 
 template<typename T, int Headdim, int Headdim_V>
-void run_mha_fwd_splithd_splitkv_dispatch(Flash_fwd_params &params, hggcStream_t stream) {
+void run_mha_fwd_splithd_splitkv_dispatch(Flash_fwd_params &params, cudaStream_t stream) {
     FLASH_ASSERT(params.page_block_size % 16 == 0);
     bool cross_cut = use_cross_cut(params.seqlen_q, params.b);
 

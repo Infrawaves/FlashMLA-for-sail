@@ -2,4 +2,4 @@
 
 #include "params.h"
 
-void get_mla_metadata_func(Mla_metadata_params &params, hggcStream_t stream);
+void get_mla_metadata_func(Mla_metadata_params &params, cudaStream_t stream);

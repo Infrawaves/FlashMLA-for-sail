@@ -14,8 +14,8 @@
 
 template<typename T, bool IsFP8, int Headdim, int Headdim_V,
          bool IsV41FP8, bool IsExtraFP4 = false>
-void run_sparse_decode_fwd_dispatch(Flash_fwd_params &params, hggcStream_t stream);
-void get_mla_metadata_func(Mla_metadata_params &params, hggcStream_t stream);
+void run_sparse_decode_fwd_dispatch(Flash_fwd_params &params, cudaStream_t stream);
+void get_mla_metadata_func(Mla_metadata_params &params, cudaStream_t stream);
 
 static std::tuple<at::Tensor, at::Tensor, std::optional<at::Tensor>, std::optional<at::Tensor>>
 sparse_attn_decode_interface(
@@ -308,16 +308,16 @@ sparse_attn_decode_interface(
     // export PPU_LIB_SHOW_PARAMS=1
     ppu::fmha::FmhaProfParam fmha_prof_params;
     if (ppu::fmha::ProfilingInterface::Instance().get_op_info()) {
-        hggcStreamCaptureStatus captureStatus;
-        hggcStreamIsCapturing(stream, &captureStatus);
+        cudaStreamCaptureStatus captureStatus;
+        cudaStreamIsCapturing(stream, &captureStatus);
 
         std::string topk_len_str = "";
         std::string extra_topk_len_str = "";
-        if (captureStatus != hggcStreamCaptureStatusNone) {
-            GraphCaptureModeSuspender protector(hggcStreamCaptureModeRelaxed);
+        if (captureStatus != cudaStreamCaptureStatusNone) {
+            GraphCaptureModeSuspender protector(cudaStreamCaptureModeRelaxed);
             // Create a temporary side stream not associated with the capture
-            hggcStream_t side_stream;
-            if (hggcStreamCreateWithFlags(&side_stream, hggcStreamNonBlocking) == hggcSuccess) {
+            cudaStream_t side_stream;
+            if (cudaStreamCreateWithFlags(&side_stream, cudaStreamNonBlocking) == cudaSuccess) {
                 // Perform Device-to-Host copy on the side stream
                 // This won't be recorded in the graph
                 if (params.topk_len_ptr) {
@@ -327,7 +327,7 @@ sparse_attn_decode_interface(
                     extra_topk_len_str = fmha_prof_params.nvtx_param2str<int>(params.extra_topk_len_ptr, params.b, side_stream);
                 }
                 // Synchronize the side stream (Safe because of Relaxed mode)
-                hggcStreamDestroy(side_stream);
+                cudaStreamDestroy(side_stream);
             }
         } else {
             // Construct the string for profiling/UT analysis

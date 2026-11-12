@@ -14,7 +14,7 @@
 #include "utils.h"
 
 // File Path: /usr/local/cuda/include/math_constants.h
-#define HGGCRT_INF_F __int_as_float(0x7f800000)
+#define CUDART_INF_F __int_as_float(0x7f800000)
 #define CUDART_L2E_F 1.4426950408889634f
 
 // #define TSM_ROW_IDX(i, offset, stride) \
@@ -469,7 +469,7 @@ struct SoftmaxBetweenWarps {
             } else {
                 scores_scale(mi) = (sum == 0.f || sum != sum) ? 1.f : sum;
                 int q_row_idx = m_block * kBlockM + (warp_id % AtomLayoutQ) * MMA_ATOM_M + (mi % 2) * 8 + (threadIdx.x % 32 / 4) + (mi / 2) * AtomLayoutQ * MMA_ATOM_M;
-                float attn_sink = sink == nullptr ? -HGGCRT_INF_F : sink[q_row_idx]*CUDART_L2E_F;
+                float attn_sink = sink == nullptr ? -CUDART_INF_F : sink[q_row_idx]*CUDART_L2E_F;
                 float cur_max = row_max(mi) == -INFINITY ? 0.0f : row_max(mi);
                 scores_scale(mi) = 1.f / (scores_scale(mi) + exp2f(attn_sink - cur_max * sm_scale_div_log2));
             }

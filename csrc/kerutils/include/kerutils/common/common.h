@@ -4,7 +4,7 @@
 #include <cstdlib>
 
 #if !defined(__HGGCCC_RTC__)
-#include <hggc_runtime.h>
+#include <cuda_runtime.h>
 #endif
 
 #define FLASH_DEVICE_ASSERT(cond)                                                 \
@@ -17,15 +17,15 @@
 
 #define CHECK_CUDA(call)                                                          \
     do {                                                                          \
-        hggcError_t status_ = call;                                               \
-        if (status_ != hggcSuccess) {                                             \
+        cudaError_t status_ = call;                                               \
+        if (status_ != cudaSuccess) {                                             \
             fprintf(stderr, "HGGC error (%s:%d): %s\n", __FILE__, __LINE__,      \
-                    hggcGetErrorString(status_));                                 \
+                    cudaGetErrorString(status_));                                 \
             exit(1);                                                             \
         }                                                                         \
     } while (0)
 
-#define CHECK_CUDA_KERNEL_LAUNCH() CHECK_CUDA(hggcGetLastError())
+#define CHECK_CUDA_KERNEL_LAUNCH() CHECK_CUDA(cudaGetLastError())
 
 #define FLASH_ASSERT(cond)                                                       \
     do {                                                                          \

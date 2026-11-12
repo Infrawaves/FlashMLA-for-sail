@@ -5,11 +5,11 @@
 
 #pragma once
 
-#include <hggc_fp16.h>
-#include <hggc_runtime.h>
+#include <cuda_fp16.h>
+#include <cuda_runtime.h>
 #include <ATen/cuda/CUDAContext.h>
 
-#include <hggc_bf16.h>
+#include <cuda_bf16.h>
 
 struct Flash_fwd_params {
     using index_t = int64_t;
@@ -102,7 +102,7 @@ struct SparsePrefillParams {
     void* __restrict__ max_logits; // [s_q, h_q]
     void* __restrict__ lse; // [s_q, h_q]
 
-    hggcStream_t stream;
+    cudaStream_t stream;
 };
 
 static constexpr int TileSchedulerMetaDataSize = 8;

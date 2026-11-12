@@ -365,8 +365,8 @@ inline void execute_verify(Request &request, int64_t queries_per_request, bool s
 }
 } // namespace flashmla::quantized_attention
 
-void prepare_sparse_prefill_fp8_kv(const void *, void *, int, int, int64_t, hggcStream_t);
-void prepare_sparse_prefill_index_bounds(const int *, int *, int, int, int, hggcStream_t);
+void prepare_sparse_prefill_fp8_kv(const void *, void *, int, int, int64_t, cudaStream_t);
+void prepare_sparse_prefill_index_bounds(const int *, int *, int, int, int, cudaStream_t);
 
 std::vector<at::Tensor> sparse_quantized_fwd(
     const at::Tensor &q,       // [s_q, h_q, d_qk=512|576] bf16/e4m3

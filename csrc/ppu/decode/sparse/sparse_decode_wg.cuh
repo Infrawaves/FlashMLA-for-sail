@@ -610,7 +610,7 @@ __forceinline__ __device__ void dsa_issue_K_load(
 #include "kerutils/host/hardware_info.h"
 #include "kerutils/device/ppu/dequant.cuh"
 
-#include <hggc_ad.h>
+#include <cuda_ad.h>
 
 using namespace cute;
 using cutlass::arch::NamedBarrier;
@@ -663,7 +663,7 @@ __forceinline__ __device__ void wg_reduce_softmax_sums(
 }
 
 // e8m0 scale dtype alias (matches kerutils dequant.cuh)
-using fp8_e8m0 = __hg_fp8_e8m0;
+using fp8_e8m0 = __nv_fp8_e8m0;
 
 // ---------------------------------------------------------------------------
 // Localized from the patch's flash_splitkv/splitkv_dsa.h: async K tile copy
@@ -2581,7 +2581,7 @@ __forceinline__ __device__ void load_and_dequant_sparse_K_staged(
                     #pragma unroll
                     for (int group = 0; group < 2; ++group) {
                         const uint8_t raw = __ldg(scales + dim_begin / 16 + group);
-                        const __hg_fp8_e4m3 e4m3 = *reinterpret_cast<const __hg_fp8_e4m3*>(&raw);
+                        const __nv_fp8_e4m3 e4m3 = *reinterpret_cast<const __nv_fp8_e4m3*>(&raw);
                         scales_fp4[group] = float(e4m3);
                     }
                 }
@@ -2590,7 +2590,7 @@ __forceinline__ __device__ void load_and_dequant_sparse_K_staged(
                 if (valid) {
                     packed4 = __ldg(reinterpret_cast<const uint4*>(data));
                 }
-                const __ppu_bfloat162 scales_bf16x2[2] = {
+                const __nv_bfloat162 scales_bf16x2[2] = {
                     __float2bfloat162_rn(scales_fp4[0]),
                     __float2bfloat162_rn(scales_fp4[1])
                 };
@@ -2603,8 +2603,8 @@ __forceinline__ __device__ void load_and_dequant_sparse_K_staged(
                     #pragma unroll
                     for (int pair = 0; pair < 4; ++pair) {
                         const uint32_t values = pairs[pair];
-                        const __ppu_bfloat162 scaled = __hmul2(
-                            *reinterpret_cast<const __ppu_bfloat162*>(&values),
+                        const __nv_bfloat162 scaled = __hmul2(
+                            *reinterpret_cast<const __nv_bfloat162*>(&values),
                             scales_bf16x2[chunk / 2]);
                         out_bits[pair] = *reinterpret_cast<const uint32_t*>(&scaled);
                     }
@@ -2693,7 +2693,7 @@ __forceinline__ __device__ void load_and_dequant_sparse_K_staged(
 
                     // FP8 nope value
                     uint8_t fp8_raw = __ldg(gmem_tok + elem_in_tok);
-                    __hg_fp8_e4m3 fp8_val = *reinterpret_cast<const __hg_fp8_e4m3*>(&fp8_raw);
+                    __nv_fp8_e4m3 fp8_val = *reinterpret_cast<const __nv_fp8_e4m3*>(&fp8_raw);
 
                     float scale_val;
                     if constexpr (T::kModel1Layout) {
@@ -4830,18 +4830,18 @@ struct SparseDecodeV41BoundedPrefixScheduler {
 };
 
 template<typename T>
-void launch_sparse_decode_wg_v41_main(Flash_fwd_params &p,hggcStream_t stream) {
+void launch_sparse_decode_wg_v41_main(Flash_fwd_params &p,cudaStream_t stream) {
     auto kernel=&::flash_sparse_decode_wg_kernel<T>;
     constexpr size_t bytes=std::max(sizeof(typename T::SharedMemoryPlan),sizeof(typename T::SharedMemoryOutPut));
     static_assert(bytes==262144 && sizeof(typename T::SharedMemoryPlan)==248880);
-    C10_CUDA_CHECK(hggcFuncSetAttribute(kernel,hggcFuncAttributeMaxDynamicSharedMemorySize,bytes));
+    C10_CUDA_CHECK(cudaFuncSetAttribute(kernel,cudaFuncAttributeMaxDynamicSharedMemorySize,bytes));
     const int m_blocks=cute::ceil_div(p.seqlen_q,T::kBlockM);
-    hggcLaunchAttribute attributes[1];
-    attributes[0].id=hggcLaunchAttributeProgrammaticStreamSerialization;
+    cudaLaunchAttribute attributes[1];
+    attributes[0].id=cudaLaunchAttributeProgrammaticStreamSerialization;
     attributes[0].val.programmaticStreamSerializationAllowed=1;
     const int64_t z_blocks=T::kSingleTaskCTA?int64_t(p.b)+p.num_sm_parts-1:p.num_sm_parts;
-    hggcLaunchConfig_t config={dim3(m_blocks,p.h,unsigned(z_blocks)),dim3(T::NUM_THREADS,1,1),bytes,stream,attributes,1};
-    hggcLaunchKernelEx(&config,kernel,p);
+    cudaLaunchConfig_t config={dim3(m_blocks,p.h,unsigned(z_blocks)),dim3(T::NUM_THREADS,1,1),bytes,stream,attributes,1};
+    cudaLaunchKernelEx(&config,kernel,p);
     CHECK_CUDA_KERNEL_LAUNCH();
 }
 
@@ -4900,7 +4900,7 @@ __forceinline__ bool sparse_decode_v41_fp8_scope_u32_gate(const Flash_fwd_params
 }
 
 template<bool ExtraFP4>
-void launch_sparse_decode_wg_v41(Flash_fwd_params &p,hggcStream_t stream) {
+void launch_sparse_decode_wg_v41(Flash_fwd_params &p,cudaStream_t stream) {
     using PairedT=SparseDecodeV41PairedTraits<ExtraFP4>;
     FLASH_ASSERT(p.topk%64==0);
     FLASH_ASSERT(sparse_decode_wg_v41_q_alignment_supported(
@@ -5640,7 +5640,7 @@ flash_sparse_decode_wg_kernel(__grid_constant__ const Flash_fwd_mla_params param
 
 template <typename InputT, int Arch, bool IsFP8, int BlockM,
           bool IsV41FP8, bool IsExtraFP4>
-void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_t stream)
+void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, cudaStream_t stream)
 {
     if constexpr (Arch == 89 && IsFP8 && IsV41FP8 && BlockM == 128 &&
                   std::is_same_v<InputT, cutlass::bfloat16_t>) {
@@ -5720,12 +5720,12 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
         }
         constexpr size_t smem_size = std::max(sizeof(typename T::SharedMemoryPlan), sizeof(typename T::SharedMemoryOutPut));
 
-        hggcFuncSetAttribute(mla_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+        cudaFuncSetAttribute(mla_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
 
         const int num_m_block = cute::ceil_div(params.seqlen_q, T::kBlockM);
 
         int ctas_per_sm;
-        hggcError status_ = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+        cudaError status_ = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
             &ctas_per_sm, mla_kernel, T::NUM_THREADS, smem_size);
 
         char *pEnv_params = std::getenv("show_log");
@@ -5733,8 +5733,8 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
             printf("[splitkv_mla]:\n");
             printf("smem_size = %d, CTAs per SM = %d\n", int(smem_size), ctas_per_sm);
 
-            hggcFuncAttributes attr;
-            hggcFuncGetAttributes(&attr, mla_kernel);
+            cudaFuncAttributes attr;
+            cudaFuncGetAttributes(&attr, mla_kernel);
             const auto *dprops = at::cuda::getCurrentDeviceProperties();
             int sm_count = dprops->multiProcessorCount;
             if (std::string(dprops->name).find("810E") != std::string::npos) sm_count = 20;
@@ -5749,11 +5749,11 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
                     float(num_m_block * params.h * launch_parts) / float(sm_count * ctas_per_sm), Arch);
         }
 
-        // Use hggcLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
-        hggcLaunchAttribute mla_kernel_attributes[1];
-        mla_kernel_attributes[0].id = hggcLaunchAttributeProgrammaticStreamSerialization;
+        // Use cudaLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
+        cudaLaunchAttribute mla_kernel_attributes[1];
+        mla_kernel_attributes[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
         mla_kernel_attributes[0].val.programmaticStreamSerializationAllowed = 1;
-        hggcLaunchConfig_t mla_kernel_config = {
+        cudaLaunchConfig_t mla_kernel_config = {
             dim3(num_m_block, params.h, launch_parts),
             dim3(T::NUM_THREADS, 1, 1),
             smem_size,
@@ -5761,7 +5761,7 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
             mla_kernel_attributes,
             1
         };
-        hggcLaunchKernelEx(&mla_kernel_config, mla_kernel, params);
+        cudaLaunchKernelEx(&mla_kernel_config, mla_kernel, params);
 
         CHECK_CUDA_KERNEL_LAUNCH();
 
@@ -5793,12 +5793,12 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
         }
         constexpr size_t smem_size = std::max(sizeof(typename T::SharedMemoryPlan), sizeof(typename T::SharedMemoryOutPut));
 
-        hggcFuncSetAttribute(mla_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+        cudaFuncSetAttribute(mla_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
 
         const int num_m_block = cute::ceil_div(params.seqlen_q, T::kBlockM);
 
         int ctas_per_sm;
-        hggcError status_ = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+        cudaError status_ = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
             &ctas_per_sm, mla_kernel, T::NUM_THREADS, smem_size);
 
         char *pEnv_params = std::getenv("show_log");
@@ -5806,8 +5806,8 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
             printf("[splitkv_mla (d=512)]:\n");
             printf("smem_size = %d, CTAs per SM = %d\n", int(smem_size), ctas_per_sm);
 
-            hggcFuncAttributes attr;
-            hggcFuncGetAttributes(&attr, mla_kernel);
+            cudaFuncAttributes attr;
+            cudaFuncGetAttributes(&attr, mla_kernel);
             const auto *dprops = at::cuda::getCurrentDeviceProperties();
             int sm_count = dprops->multiProcessorCount;
             if (std::string(dprops->name).find("810E") != std::string::npos) sm_count = 20;
@@ -5821,11 +5821,11 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
                     float(num_m_block * params.h * launch_parts) / float(sm_count * ctas_per_sm), Arch);
         }
 
-        // Use hggcLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
-        hggcLaunchAttribute mla_kernel_attributes[1];
-        mla_kernel_attributes[0].id = hggcLaunchAttributeProgrammaticStreamSerialization;
+        // Use cudaLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
+        cudaLaunchAttribute mla_kernel_attributes[1];
+        mla_kernel_attributes[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
         mla_kernel_attributes[0].val.programmaticStreamSerializationAllowed = 1;
-        hggcLaunchConfig_t mla_kernel_config = {
+        cudaLaunchConfig_t mla_kernel_config = {
             dim3(num_m_block, params.h, launch_parts),
             dim3(T::NUM_THREADS, 1, 1),
             smem_size,
@@ -5833,7 +5833,7 @@ void run_flash_sparse_decode_wg_kernel(Flash_fwd_mla_params &params, hggcStream_
             mla_kernel_attributes,
             1
         };
-        hggcLaunchKernelEx(&mla_kernel_config, mla_kernel, params);
+        cudaLaunchKernelEx(&mla_kernel_config, mla_kernel, params);
 
         CHECK_CUDA_KERNEL_LAUNCH();
 

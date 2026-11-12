@@ -8,21 +8,21 @@
 // Quantization has unit scale, matching fused BF16 Q conversion. Per-tensor
 // dequantization scales remain in the attention launcher's exponent/epilogue.
 __global__ void sparse_prefill_quantize_kv(
-    const __ppu_bfloat16_raw *input, E4M3 *output, int rows, int dim, int64_t row_stride) {
+    const __nv_bfloat16_raw *input, E4M3 *output, int rows, int dim, int64_t row_stride) {
     const int64_t pair = (int64_t)blockIdx.x * blockDim.x + threadIdx.x;
     const int64_t offset = pair * 2;
     if (offset >= (int64_t)rows * dim)
         return;
     const int row = offset / dim, column = offset % dim;
     const auto value =
-        *reinterpret_cast<const __ppu_bfloat162_raw *>(input + (int64_t)row * row_stride + column);
-    *reinterpret_cast<__hg_fp8x2_storage_t *>(output + offset) =
+        *reinterpret_cast<const __nv_bfloat162_raw *>(input + (int64_t)row * row_stride + column);
+    *reinterpret_cast<__nv_fp8x2_storage_t *>(output + offset) =
         flashmla::sparse_native_fp8::pack_e4m3_pair(value);
 }
 
 template <int Dim>
 __global__ void sparse_prefill_quantize_kv_vectorized(
-    const __ppu_bfloat16_raw *input, E4M3 *output, int rows, int64_t row_stride) {
+    const __nv_bfloat16_raw *input, E4M3 *output, int rows, int64_t row_stride) {
     constexpr int Elements = 16;
     const int64_t vector = (int64_t)blockIdx.x * blockDim.x + threadIdx.x;
     if (vector >= (int64_t)rows * (Dim / Elements))
@@ -33,13 +33,13 @@ __global__ void sparse_prefill_quantize_kv_vectorized(
     const cute::uint128_t low = *reinterpret_cast<const cute::uint128_t *>(source);
     const cute::uint128_t high = *reinterpret_cast<const cute::uint128_t *>(source + 8);
     cute::uint128_t packed;
-    auto *pairs = reinterpret_cast<__hg_fp8x2_storage_t *>(&packed);
+    auto *pairs = reinterpret_cast<__nv_fp8x2_storage_t *>(&packed);
     CUTE_UNROLL
     for (int j = 0; j < 4; ++j) {
         pairs[j] = flashmla::sparse_native_fp8::pack_e4m3_pair(
-            reinterpret_cast<const __ppu_bfloat162_raw *>(&low)[j]);
+            reinterpret_cast<const __nv_bfloat162_raw *>(&low)[j]);
         pairs[j + 4] = flashmla::sparse_native_fp8::pack_e4m3_pair(
-            reinterpret_cast<const __ppu_bfloat162_raw *>(&high)[j]);
+            reinterpret_cast<const __nv_bfloat162_raw *>(&high)[j]);
     }
     reinterpret_cast<cute::uint128_t *>(output)[vector] = packed;
 }
@@ -69,30 +69,30 @@ __global__ void sparse_prefill_index_bounds(
 }
 
 void prepare_sparse_prefill_fp8_kv(
-    const void *input, void *output, int rows, int dim, int64_t row_stride, hggcStream_t stream) {
+    const void *input, void *output, int rows, int dim, int64_t row_stride, cudaStream_t stream) {
     if (rows == 0)
         return;
     if (reinterpret_cast<uintptr_t>(input) % 16 == 0 && row_stride % 8 == 0) {
         const int blocks = ((int64_t)rows * dim / 16 + 255) / 256;
         if (dim == 512) {
             sparse_prefill_quantize_kv_vectorized<512>
-                <<<blocks, 256, 0, stream>>>(reinterpret_cast<const __ppu_bfloat16_raw *>(input),
+                <<<blocks, 256, 0, stream>>>(reinterpret_cast<const __nv_bfloat16_raw *>(input),
                     reinterpret_cast<E4M3 *>(output), rows, row_stride);
         } else {
             sparse_prefill_quantize_kv_vectorized<576>
-                <<<blocks, 256, 0, stream>>>(reinterpret_cast<const __ppu_bfloat16_raw *>(input),
+                <<<blocks, 256, 0, stream>>>(reinterpret_cast<const __nv_bfloat16_raw *>(input),
                     reinterpret_cast<E4M3 *>(output), rows, row_stride);
         }
         return;
     }
     const int blocks = ((int64_t)rows * dim / 2 + 255) / 256;
     sparse_prefill_quantize_kv<<<blocks, 256, 0, stream>>>(
-        reinterpret_cast<const __ppu_bfloat16_raw *>(input), reinterpret_cast<E4M3 *>(output), rows,
+        reinterpret_cast<const __nv_bfloat16_raw *>(input), reinterpret_cast<E4M3 *>(output), rows,
         dim, row_stride);
 }
 
 void prepare_sparse_prefill_index_bounds(
-    const int *indices, int *lengths, int queries, int width, int kv_rows, hggcStream_t stream) {
+    const int *indices, int *lengths, int queries, int width, int kv_rows, cudaStream_t stream) {
     if (queries == 0)
         return;
     sparse_prefill_index_bounds<<<queries, 256, 0, stream>>>(indices, lengths, width, kv_rows);
@@ -176,7 +176,7 @@ __global__ __launch_bounds__(Fp8SparsePrefillTraits<BM>::Threads,
     const int active_heads = min(BM, h_q - head_group * BM);
     const long q_head_offset = ((long)q_token * h_q + head_group * BM) * DQK;
     const E4M3 *gQ8 = reinterpret_cast<const E4M3 *>(gQRaw) + q_head_offset;
-    const __ppu_bfloat16_raw *gQbf16 = reinterpret_cast<const __ppu_bfloat16_raw *>(gQRaw) +
+    const __nv_bfloat16_raw *gQbf16 = reinterpret_cast<const __nv_bfloat16_raw *>(gQRaw) +
                                       (long)q_token * q_stride_t +
                                       (long)head_group * BM * q_stride_h;
     gIdx += (long)q_token * n_tiles * BN;
@@ -255,13 +255,13 @@ __global__ __launch_bounds__(Fp8SparsePrefillTraits<BM>::Threads,
             for (int i = tid; i < BM * (DQK / 16); i += NTHR) {
                 const int r = i / (DQK / 16), g = i % (DQK / 16);
                 cute::uint128_t packed;
-                auto *pairs = reinterpret_cast<__hg_fp8x2_storage_t *>(&packed);
+                auto *pairs = reinterpret_cast<__nv_fp8x2_storage_t *>(&packed);
                 CUTE_UNROLL
                 for (int j = 0; j < 8; ++j) {
                     const auto bf16x2 = (r < active_heads)
-                                            ? *reinterpret_cast<const __ppu_bfloat162_raw *>(
+                                            ? *reinterpret_cast<const __nv_bfloat162_raw *>(
                                                   gQbf16 + (long)r * q_stride_h + g * 16 + j * 2)
-                                            : __ppu_bfloat162_raw{};
+                                            : __nv_bfloat162_raw{};
                     pairs[j] = flashmla::sparse_native_fp8::pack_e4m3_pair(bf16x2);
                 }
 
@@ -502,10 +502,10 @@ void launch_sparse_prefill_fp8_fwd(const flashmla::sparse_native_fp8::AttentionP
     const int n_head_groups = (params.heads + BM - 1) / BM;
 #define LAUNCH_ORDER(TWO_GROUPS, CHECK_BOUNDS, GRID)                                            \
     do {                                                                                        \
-        hggcFuncSetAttribute(                                                                   \
+        cudaFuncSetAttribute(                                                                   \
             flash_fwd_sparse_prefill_fp8_kernel<BM, DQK, Q_IS_BF16, TRUSTED_FULL_TOPK,          \
                                                 TWO_GROUPS, CHECK_BOUNDS>,                      \
-            hggcFuncAttributeMaxDynamicSharedMemorySize, smem);                                 \
+            cudaFuncAttributeMaxDynamicSharedMemorySize, smem);                                 \
         flash_fwd_sparse_prefill_fp8_kernel<BM, DQK, Q_IS_BF16, TRUSTED_FULL_TOPK,              \
                                             TWO_GROUPS, CHECK_BOUNDS>                           \
             <<<GRID, NTHR, smem, params.stream>>>(                                              \

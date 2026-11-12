@@ -499,7 +499,7 @@ flash_sparse_prefill_fwd_kernel(__grid_constant__ const SparsePrefillParams para
 } // namespace flash
 
 #ifdef __HGGCCC__
-#include <hggc_ad.h>
+#include <cuda_ad.h>
 #endif
 
 template<typename Kernel_traits, bool HAVE_TOPK_LENGTH, bool SINGLE_KV = false>
@@ -512,17 +512,17 @@ void run_flash_sparse_prefill_fwd(SparsePrefillParams &params) {
 
     auto kernel = &flash::flash_sparse_prefill_fwd_kernel<Kernel_traits, HAVE_TOPK_LENGTH, false, true, SINGLE_KV>;
     flash::printf_prefill_show_log<Kernel_traits>(reinterpret_cast<const void*>(kernel), params, smem_size);
-    CHECK_CUDA(hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+    CHECK_CUDA(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
 #ifdef __HGGCCC__
        //TODO
         const void *flash_func = reinterpret_cast<const void*>(kernel);
-        HGfunction func = static_cast<HGfunction>(NULL);
-        hggcGetFuncBySymbol(reinterpret_cast<hggcFunction_t*>(&func), flash_func);
+        CUfunction func = static_cast<CUfunction>(NULL);
+        cudaGetFuncBySymbol(reinterpret_cast<cudaFunction_t*>(&func), flash_func);
 
         void* kernel_args[] = {&params};
-        HGlaunchAttributeAD LaunchAttr = {HGAD_LAUNCH_ATTRIBUTE_IGNORE}; //HGAD_LAUNCH_ATTRIBUTE_SCHED_PREFERENCE
-        HGlaunchConfigAD LaunchCfg = {num_m_block, 1, 1, Kernel_traits::kNThreads, 1, 1, smem_size, params.stream, &LaunchAttr, 0};
-        CUDA_DRIVER_CHECK(hgLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
+        CUlaunchAttributeAD LaunchAttr = {CUAD_LAUNCH_ATTRIBUTE_IGNORE}; //CUAD_LAUNCH_ATTRIBUTE_SCHED_PREFERENCE
+        CUlaunchConfigAD LaunchCfg = {num_m_block, 1, 1, Kernel_traits::kNThreads, 1, 1, smem_size, params.stream, &LaunchAttr, 0};
+        CUDA_DRIVER_CHECK(cuLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
 #else
         kernel<<<dim3(num_m_block, 1, 1), Kernel_traits::kNThreads, smem_size, params.stream>>>(params);
 #endif

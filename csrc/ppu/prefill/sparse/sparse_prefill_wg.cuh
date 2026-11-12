@@ -1992,11 +1992,11 @@ void run_flash_sparse_prefill_fwd_wg(SparsePrefillParams &params) {
     if (HEAD_DIM == 512 && params.topk < 4 * (2 * T::kBlockN))
         mla_kernel = &flash_sparse_prefill_fwd_wg_kernel<T, true, false>;
     constexpr size_t smem_size = std::max(sizeof(typename T::SharedMemoryPlan), sizeof(typename T::SharedMemoryOutPut));
-        C10_CUDA_CHECK(hggcFuncSetAttribute(mla_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+        C10_CUDA_CHECK(cudaFuncSetAttribute(mla_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
     const int num_m_block = params.s_q * cute::ceil_div(params.h_q, T::kBlockM);
 
     int ctas_per_sm;
-    hggcError status_ = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+    cudaError status_ = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
         &ctas_per_sm, mla_kernel, T::NUM_THREADS, smem_size);
 
     char *pEnv_params = std::getenv("show_log");
@@ -2004,8 +2004,8 @@ void run_flash_sparse_prefill_fwd_wg(SparsePrefillParams &params) {
         printf("[dsa_prefill_wg]:\n");
         printf("smem_size = %d, CTAs per SM = %d\n", int(smem_size), ctas_per_sm);
 
-        hggcFuncAttributes attr;
-        hggcFuncGetAttributes(&attr, mla_kernel);
+        cudaFuncAttributes attr;
+        cudaFuncGetAttributes(&attr, mla_kernel);
         auto dprops = at::cuda::getCurrentDeviceProperties();
 
         int sm_count = dprops->multiProcessorCount;
@@ -2022,10 +2022,10 @@ void run_flash_sparse_prefill_fwd_wg(SparsePrefillParams &params) {
     }
 
     // Use cudaLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
-    // hggcLaunchAttribute mla_kernel_attributes[1];
-    // mla_kernel_attributes[0].id = hggcLaunchAttributeProgrammaticStreamSerialization;
+    // cudaLaunchAttribute mla_kernel_attributes[1];
+    // mla_kernel_attributes[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
     // mla_kernel_attributes[0].val.programmaticStreamSerializationAllowed = 1;
-    // hggcLaunchConfig_t mla_kernel_config = {
+    // cudaLaunchConfig_t mla_kernel_config = {
     //     dim3(num_m_block, params.h_kv, 1),
     //     dim3(T::NUM_THREADS, 1, 1),
     //     smem_size,

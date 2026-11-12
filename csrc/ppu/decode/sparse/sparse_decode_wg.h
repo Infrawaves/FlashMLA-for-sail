@@ -6,7 +6,7 @@
 
 template<typename InputT, int Arch, bool IsFP8 = true, int BlockM = 128,
          bool IsV41FP8 = false, bool IsExtraFP4 = false>
-void run_flash_sparse_decode_wg_kernel(Flash_fwd_params &params, hggcStream_t stream);
+void run_flash_sparse_decode_wg_kernel(Flash_fwd_params &params, cudaStream_t stream);
 
 namespace flashmla {
 namespace dsa {
@@ -15,7 +15,7 @@ namespace hs64 {
 
 void run_flash_sparse_decode_wg_kernel_hs64(
     Flash_fwd_params &params,
-    hggcStream_t stream,
+    cudaStream_t stream,
     bool is_v41_fp8 = false,
     bool is_extra_fp4 = false);
 

@@ -4,7 +4,7 @@
  ******************************************************************************/
 #pragma once
 
-#include <hggc_runtime.h>
+#include <cuda_runtime.h>
 #include <ATen/cuda/CUDAContext.h>
 
 #include "kerutils/common/common.h"

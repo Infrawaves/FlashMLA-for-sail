@@ -10,8 +10,8 @@
 #include "kerutils/common/static_switch.h"
 
 template<typename T, int Headdim, int Headdim_V>
-void run_mha_fwd_splithd_splitkv_dispatch(Flash_fwd_params &params, hggcStream_t stream);
-void get_mla_metadata_func(Mla_metadata_params &params, hggcStream_t stream);
+void run_mha_fwd_splithd_splitkv_dispatch(Flash_fwd_params &params, cudaStream_t stream);
+void get_mla_metadata_func(Mla_metadata_params &params, cudaStream_t stream);
 // fp8 splits KV at 128-row granularity (its largest kernel tile); bf16/fp16 use 64.
 // Split boundaries must divide the kernel's kBlockN -- single source for both metadata paths.
 inline int dense_decode_block_size_n(const bool qkv_fp8) { return qkv_fp8 ? 128 : 64; }
@@ -218,20 +218,20 @@ dense_attn_decode_interface(
     // export PPU_LIB_SHOW_PARAMS=1
     ppu::fmha::FmhaProfParam fmha_prof_params;
     if (ppu::fmha::ProfilingInterface::Instance().get_op_info()) {
-        hggcStreamCaptureStatus captureStatus;
-        hggcStreamIsCapturing(stream, &captureStatus);
+        cudaStreamCaptureStatus captureStatus;
+        cudaStreamIsCapturing(stream, &captureStatus);
 
         std::string seqlen_kv_str = "";
-        if (captureStatus != hggcStreamCaptureStatusNone) {
-            GraphCaptureModeSuspender protector(hggcStreamCaptureModeRelaxed);
+        if (captureStatus != cudaStreamCaptureStatusNone) {
+            GraphCaptureModeSuspender protector(cudaStreamCaptureModeRelaxed);
             // Create a temporary side stream not associated with the capture
-            hggcStream_t side_stream;
-            if (hggcStreamCreateWithFlags(&side_stream, hggcStreamNonBlocking) == hggcSuccess) {
+            cudaStream_t side_stream;
+            if (cudaStreamCreateWithFlags(&side_stream, cudaStreamNonBlocking) == cudaSuccess) {
                 // Perform Device-to-Host copy on the side stream
                 // This won't be recorded in the graph
                 seqlen_kv_str = fmha_prof_params.nvtx_param2str<int>(params.cu_seqlens_k, params.b, side_stream);
                 // Synchronize the side stream (Safe because of Relaxed mode)
-                hggcStreamDestroy(side_stream);
+                cudaStreamDestroy(side_stream);
             }
         } else {
             // Construct the string for profiling/UT analysis

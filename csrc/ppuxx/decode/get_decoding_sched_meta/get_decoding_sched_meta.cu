@@ -93,9 +93,9 @@ get_mla_metadata_kernel(__grid_constant__ const Mla_metadata_params params) {
     }
 }
 
-void get_mla_metadata_func(Mla_metadata_params &params, hggcStream_t stream) {
+void get_mla_metadata_func(Mla_metadata_params &params, cudaStream_t stream) {
     int smem_size = sizeof(int) * (params.batch_size*3+1);
-    CHECK_CUDA(hggcFuncSetAttribute(get_mla_metadata_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+    CHECK_CUDA(cudaFuncSetAttribute(get_mla_metadata_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
     get_mla_metadata_kernel<<<1, 32, smem_size, stream>>>(params);
     CHECK_CUDA_KERNEL_LAUNCH();
 }

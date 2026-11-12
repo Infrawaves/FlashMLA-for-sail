@@ -83,8 +83,8 @@ if not os.path.exists(dir_actlize):
         raise EnvironmentError("setup dependencies FAILED: " + repr(e))
 
 cc_flag = []
-cc_flag.append("-arch=ppu_10")
-cc_flag.append("-arch=ppu_15")
+cc_flag.append("-gencode=arch=compute_80,code=sm_80")
+cc_flag.append("-gencode=arch=compute_89,code=sm_89")
 
 cxx_args = ["-O3", "-std=c++17", "-DNDEBUG", "-Wno-deprecated-declarations"]
 
@@ -93,7 +93,7 @@ ext_modules.append(
     CUDAExtension(
         name="flash_mla_cuda",
         sources=get_sources(),
-        libraries=['hggc'],
+        libraries=['cuda'],
         extra_compile_args={
             "cxx": cxx_args + get_features_args(),
             "nvcc": append_hgcc_threads(

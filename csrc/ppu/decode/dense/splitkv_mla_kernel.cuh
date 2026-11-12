@@ -26,7 +26,7 @@
 #include "ppuxx/decode/combine/combine.cuh"
 
 #ifdef __HGGCCC__
-#include <hggc_ad.h>
+#include <cuda_ad.h>
 #endif
 
 using namespace cute;
@@ -1877,7 +1877,7 @@ flash_fwd_splitkv_mla_kernel(__grid_constant__ const Flash_fwd_mla_params params
 }
 
 template <typename InputT, int Arch>
-void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, hggcStream_t stream)
+void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, cudaStream_t stream)
 {
     BOOL_SWITCH(params.is_causal, Is_causal, [&]
                 {
@@ -1887,12 +1887,12 @@ void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, hggcStream_t str
         auto mla_kernel = &flash_fwd_splitkv_mla_kernel<T, Is_causal>;
         constexpr size_t smem_size = std::max(sizeof(typename T::SharedMemoryPlan), sizeof(typename T::SharedMemoryOutPut));
 
-                C10_CUDA_CHECK(hggcFuncSetAttribute(mla_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+                C10_CUDA_CHECK(cudaFuncSetAttribute(mla_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
 
         const int num_m_block = cute::ceil_div(params.seqlen_q, T::kBlockM);
 
         int ctas_per_sm;
-        hggcError status_ = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+        cudaError status_ = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
             &ctas_per_sm, mla_kernel, T::NUM_THREADS, smem_size);
 
         char *pEnv_params = std::getenv("show_log");
@@ -1900,8 +1900,8 @@ void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, hggcStream_t str
             printf("[splitkv_mla]:\n");
             printf("smem_size = %d, CTAs per SM = %d\n", int(smem_size), ctas_per_sm);
 
-            hggcFuncAttributes attr;
-            hggcFuncGetAttributes(&attr, mla_kernel);
+            cudaFuncAttributes attr;
+            cudaFuncGetAttributes(&attr, mla_kernel);
             auto dprops = at::cuda::getCurrentDeviceProperties();
 
             int sm_count = dprops->multiProcessorCount;
@@ -1918,11 +1918,11 @@ void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, hggcStream_t str
                     float(num_m_block * params.h * params.num_sm_parts) / float(sm_count * ctas_per_sm), Arch);
         }
 
-        // Use hggcLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
-        hggcLaunchAttribute mla_kernel_attributes[1];
-        mla_kernel_attributes[0].id = hggcLaunchAttributeProgrammaticStreamSerialization;
+        // Use cudaLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
+        cudaLaunchAttribute mla_kernel_attributes[1];
+        mla_kernel_attributes[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
         mla_kernel_attributes[0].val.programmaticStreamSerializationAllowed = 1;
-        hggcLaunchConfig_t mla_kernel_config = {
+        cudaLaunchConfig_t mla_kernel_config = {
             dim3(num_m_block, params.h, params.num_sm_parts),
             dim3(T::NUM_THREADS, 1, 1),
             smem_size,
@@ -1930,7 +1930,7 @@ void run_flash_splitkv_mla_kernel(Flash_fwd_mla_params &params, hggcStream_t str
             mla_kernel_attributes,
             1
         };
-        hggcLaunchKernelEx(&mla_kernel_config, mla_kernel, params);
+        cudaLaunchKernelEx(&mla_kernel_config, mla_kernel, params);
         // mla_kernel<<<dim3(num_m_block, params.h, params.num_sm_parts), T::NUM_THREADS, smem_size, stream>>>(params);
 
         CHECK_CUDA_KERNEL_LAUNCH();

@@ -15,7 +15,7 @@
 #include "decode/dense/traits.h"
 
 
-#include <hggc_ad.h>
+#include <cuda_ad.h>
 #include "utils.h"
 
 using namespace cute;
@@ -425,7 +425,7 @@ flash_fwd_splitkv_mla_combine_kernel(__grid_constant__ const Flash_fwd_params pa
 
 
 template<typename ElementT>
-void run_flash_mla_combine_kernel(Flash_fwd_mla_params &params, hggcStream_t stream, bool lse_in_log2) {
+void run_flash_mla_combine_kernel(Flash_fwd_mla_params &params, cudaStream_t stream, bool lse_in_log2) {
     if (params.oaccum_ptr == nullptr) return;
 
     // lse_in_log2 tells which log domain softmax_lseaccum_ptr holds: the warp-group
@@ -438,17 +438,17 @@ void run_flash_mla_combine_kernel(Flash_fwd_mla_params &params, hggcStream_t str
             auto combine_kernel = &flash_fwd_mla_combine_kernel_small_size<Traits<ElementT>, NUM_SPLITS>;
 #ifdef __HGGCCC__
             const void *flash_func = reinterpret_cast<const void*>(combine_kernel);
-            HGfunction func = static_cast<HGfunction>(NULL);
-            hggcGetFuncBySymbol(reinterpret_cast<hggcFunction_t*>(&func), flash_func);
+            CUfunction func = static_cast<CUfunction>(NULL);
+            cudaGetFuncBySymbol(reinterpret_cast<cudaFunction_t*>(&func), flash_func);
 
             void* kernel_args[] = {&params};
-            HGlaunchAttributeAD LaunchAttr = {HGAD_LAUNCH_ATTRIBUTE_IGNORE}; //HGAD_LAUNCH_ATTRIBUTE_SCHED_PREFERENCE
-            HGlaunchConfigAD LaunchCfg = {grid_combine.x, grid_combine.y, grid_combine.z, 128, 1, 1, 0, stream, &LaunchAttr, 0};
+            CUlaunchAttributeAD LaunchAttr = {CUAD_LAUNCH_ATTRIBUTE_IGNORE}; //CUAD_LAUNCH_ATTRIBUTE_SCHED_PREFERENCE
+            CUlaunchConfigAD LaunchCfg = {grid_combine.x, grid_combine.y, grid_combine.z, 128, 1, 1, 0, stream, &LaunchAttr, 0};
             // LaunchAttr.value.schedPreference.blocksPerMultiprocessor = 1;//schedule.bits.tb_per_cu;
             // LaunchAttr.value.schedPreference.gridStepX = 2;
             // LaunchAttr.value.schedPreference.gridStepY = 2;
             // LaunchAttr.value.schedPreference.flags = 2;
-            CUDA_DRIVER_CHECK(hgLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
+            CUDA_DRIVER_CHECK(cuLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
 #else
             combine_kernel<<<grid_combine, 128, 0, stream>>>(params);
 #endif
@@ -458,12 +458,12 @@ void run_flash_mla_combine_kernel(Flash_fwd_mla_params &params, hggcStream_t str
             constexpr int NUM_THREADS = BLOCK_SIZE_M*32;
             constexpr size_t smem_size = BLOCK_SIZE_M*(NUM_SPLITS+1)*sizeof(float);
             auto combine_kernel = &flash_fwd_mla_combine_kernel<ElementT, Traits<ElementT>::kHeadDimV, BLOCK_SIZE_M, NUM_SPLITS, NUM_THREADS>;
-            CHECK_CUDA(hggcFuncSetAttribute(combine_kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
-            // Use hggcLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
-            hggcLaunchAttribute attribute[1];
-            attribute[0].id = hggcLaunchAttributeProgrammaticStreamSerialization;
+            CHECK_CUDA(cudaFuncSetAttribute(combine_kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+            // Use cudaLaunchKernelEx to enable PDL (Programmatic Dependent Launch)
+            cudaLaunchAttribute attribute[1];
+            attribute[0].id = cudaLaunchAttributeProgrammaticStreamSerialization;
             attribute[0].val.programmaticStreamSerializationAllowed = 1;
-            hggcLaunchConfig_t combine_kernel_config = {
+            cudaLaunchConfig_t combine_kernel_config = {
                 dim3(params.b, cute::ceil_div(params.h*params.seqlen_q, BLOCK_SIZE_M), 1),
                 dim3(NUM_THREADS, 1, 1),
                 smem_size,
@@ -471,7 +471,7 @@ void run_flash_mla_combine_kernel(Flash_fwd_mla_params &params, hggcStream_t str
                 attribute,
                 1
             };
-            hggcLaunchKernelEx(&combine_kernel_config, combine_kernel, params);
+            cudaLaunchKernelEx(&combine_kernel_config, combine_kernel, params);
         }
     });
     CHECK_CUDA_KERNEL_LAUNCH();

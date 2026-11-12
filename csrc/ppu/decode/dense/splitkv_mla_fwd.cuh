@@ -1034,7 +1034,7 @@ flash_fwd_splitkv_mla_kernel(__grid_constant__ const Flash_fwd_params params) {
 } // namespace flash
 
 template<typename Kernel_traits, bool CrossCut, bool PageLargerThankBlockN>
-void run_flash_splitkv_fwd(Flash_fwd_params &params, hggcStream_t stream) {
+void run_flash_splitkv_fwd(Flash_fwd_params &params, cudaStream_t stream) {
     //constexpr size_t smem_size = Kernel_traits::kSmemSize;
     constexpr size_t smem_size = Kernel_traits::kSmemSizeAccum;
     const int num_m_block = cute::ceil_div(params.seqlen_q, Kernel_traits::kBlockM);
@@ -1042,19 +1042,19 @@ void run_flash_splitkv_fwd(Flash_fwd_params &params, hggcStream_t stream) {
     BOOL_SWITCH(params.is_causal, Is_causal, [&] {
         auto kernel = &flash::flash_fwd_splitkv_mla_kernel<Kernel_traits, Is_causal, CrossCut, PageLargerThankBlockN>;
         if (smem_size >= 48 * 1024) {
-            hggcFuncSetAttribute(
-                kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size);
+            cudaFuncSetAttribute(
+                kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size);
         }
         flash::printf_show_log<Kernel_traits>(reinterpret_cast<const void*>(kernel), params, smem_size, Is_causal);
 #ifdef __HGGCCC__
         const void *flash_func = reinterpret_cast<const void*>(kernel);
-        HGfunction func = static_cast<HGfunction>(NULL);
-        hggcGetFuncBySymbol(reinterpret_cast<hggcFunction_t*>(&func), flash_func);
+        CUfunction func = static_cast<CUfunction>(NULL);
+        cudaGetFuncBySymbol(reinterpret_cast<cudaFunction_t*>(&func), flash_func);
 
         void* kernel_args[] = {&params};
-        HGlaunchAttributeAD LaunchAttr = {HGAD_LAUNCH_ATTRIBUTE_IGNORE};
-        HGlaunchConfigAD LaunchCfg = {num_m_block, params.h, params.num_sm_parts, Kernel_traits::kNThreads, 1, 1, smem_size, stream, &LaunchAttr, 0};
-        CUDA_DRIVER_CHECK(hgLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
+        CUlaunchAttributeAD LaunchAttr = {CUAD_LAUNCH_ATTRIBUTE_IGNORE};
+        CUlaunchConfigAD LaunchCfg = {num_m_block, params.h, params.num_sm_parts, Kernel_traits::kNThreads, 1, 1, smem_size, stream, &LaunchAttr, 0};
+        CUDA_DRIVER_CHECK(cuLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
 #else
         kernel<<<dim3(num_m_block, params.h, params.num_sm_parts), Kernel_traits::kNThreads, smem_size, stream>>>(params);
 #endif
@@ -1066,13 +1066,13 @@ void run_flash_splitkv_fwd(Flash_fwd_params &params, hggcStream_t stream) {
         auto combine_kernel = &flash::flash_fwd_splitkv_mla_combine_kernel<Kernel_traits, kMaxSplits>;
 #ifdef __HGGCCC__
         const void *flash_func = reinterpret_cast<const void*>(combine_kernel);
-        HGfunction func = static_cast<HGfunction>(NULL);
-        hggcGetFuncBySymbol(reinterpret_cast<hggcFunction_t*>(&func), flash_func);
+        CUfunction func = static_cast<CUfunction>(NULL);
+        cudaGetFuncBySymbol(reinterpret_cast<cudaFunction_t*>(&func), flash_func);
 
         void* kernel_args[] = {&params};
-        HGlaunchAttributeAD LaunchAttr = {HGAD_LAUNCH_ATTRIBUTE_IGNORE};
-        HGlaunchConfigAD LaunchCfg = {grid_combine.x, grid_combine.y, grid_combine.z, 128, 1, 1, 0, stream, &LaunchAttr, 0};
-        CUDA_DRIVER_CHECK(hgLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
+        CUlaunchAttributeAD LaunchAttr = {CUAD_LAUNCH_ATTRIBUTE_IGNORE};
+        CUlaunchConfigAD LaunchCfg = {grid_combine.x, grid_combine.y, grid_combine.z, 128, 1, 1, 0, stream, &LaunchAttr, 0};
+        CUDA_DRIVER_CHECK(cuLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
 #else
         combine_kernel<<<grid_combine, 128, 0, stream>>>(params);
 #endif

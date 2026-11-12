@@ -13,7 +13,7 @@
 namespace flash {
 
 using namespace cute;
-using fp8_e8m0 = __hg_fp8_e8m0;
+using fp8_e8m0 = __nv_fp8_e8m0;
 using cutlass::arch::NamedBarrier;
 
 template<typename T, int Size>
@@ -35,25 +35,25 @@ __device__ __forceinline__ void cvt_fp8_bf16(const fp8T* src_ptr, bf16T* dst_ptr
         dst_ptr[m] = (bf16T)(src_ptr[m])*scale_bf162;
     }
 
-    // TODO: acceleration with bf162/__hg_fp8x4_e4m3/float4.
+    // TODO: acceleration with bf162/__nv_fp8x4_e4m3/float4.
     // static_assert(Size % 4== 0);
     // // static_assert(sizeof(fp8T) == 8);
-    // __ppu_bfloat162 scale_bf162 = __float2bfloat162_rn(scale);
-    // const __hg_fp8x4_e4m3* src_fp82 =  reinterpret_cast<const __hg_fp8x4_e4m3*>(src_ptr);
-    // __ppu_bfloat162* dst_bf162 =  reinterpret_cast<__ppu_bfloat162*>(dst_ptr);
+    // __nv_bfloat162 scale_bf162 = __float2bfloat162_rn(scale);
+    // const __nv_fp8x4_e4m3* src_fp82 =  reinterpret_cast<const __nv_fp8x4_e4m3*>(src_ptr);
+    // __nv_bfloat162* dst_bf162 =  reinterpret_cast<__nv_bfloat162*>(dst_ptr);
 }
 
 
 struct fp8x8 {
-    __hg_fp8x4_e4m3 lo;
-    __hg_fp8x4_e4m3 hi;
+    __nv_fp8x4_e4m3 lo;
+    __nv_fp8x4_e4m3 hi;
 };
 
 struct bf16x8 {
-    __ppu_bfloat162 a01;
-    __ppu_bfloat162 a23;
-    __ppu_bfloat162 a45;
-    __ppu_bfloat162 a67;
+    __nv_bfloat162 a01;
+    __nv_bfloat162 a23;
+    __nv_bfloat162 a45;
+    __nv_bfloat162 a67;
 };
 
 template<typename Tensor0, typename Tensor1>
@@ -61,10 +61,10 @@ __device__ __forceinline__ void fp8_to_bf16(Tensor0 src, Tensor1 dst, float scal
 #if ACOMPUTE_VERSION == 10000
     Tensor src_32b = recast<uint32_t>(src);
     Tensor dst_64b = recast<uint2>(dst);
-    Tensor dst_bf16x2 = recast<__ppu_bfloat162>(dst);
-    __ppu_bfloat162 scale_bf16x2 = __float2bfloat162_rn(scale);
-    __ppu_bfloat162 dob = __float2bfloat162_rn(2.0);
-    __ppu_bfloat162 eps = __float2bfloat162_rn(-0.015625);
+    Tensor dst_bf16x2 = recast<__nv_bfloat162>(dst);
+    __nv_bfloat162 scale_bf16x2 = __float2bfloat162_rn(scale);
+    __nv_bfloat162 dob = __float2bfloat162_rn(2.0);
+    __nv_bfloat162 eps = __float2bfloat162_rn(-0.015625);
     #pragma unroll
     for (int m = 0; m < size(src_32b); ++m) {
         uint32_t m0 = src_32b[m] & 0x00070007;
@@ -75,8 +75,8 @@ __device__ __forceinline__ void fp8_to_bf16(Tensor0 src, Tensor1 dst, float scal
         uint32_t e1 = (src_32b[m] & 0x78007800) >> 4;
         dst_64b[m].x |= e0 + 0x3C003C00U;
         dst_64b[m].y |= e1 + 0x3C003C00U;
-        __ppu_bfloat162 y0 = __hfma2(dst_bf16x2[m*2 + 0], dob, eps);
-        __ppu_bfloat162 y1 = __hfma2(dst_bf16x2[m*2 + 1], dob, eps);
+        __nv_bfloat162 y0 = __hfma2(dst_bf16x2[m*2 + 0], dob, eps);
+        __nv_bfloat162 y1 = __hfma2(dst_bf16x2[m*2 + 1], dob, eps);
         dst_bf16x2[m*2 + 0] = __hmin2(y0, dst_bf16x2[m*2 + 0]);
         dst_bf16x2[m*2 + 1] = __hmin2(y1, dst_bf16x2[m*2 + 1]);
         dst_bf16x2[m*2 + 0] = __hmul2(dst_bf16x2[m*2 + 0], scale_bf16x2);
@@ -92,7 +92,7 @@ __device__ __forceinline__ void fp8_to_bf16(Tensor0 src, Tensor1 dst, float scal
 #else
     auto dstv = recast<bf16x8>(dst);
     auto srcv = recast<fp8x8>(src);
-    __ppu_bfloat162 scale_bf162 = __float2bfloat162_rn(scale);
+    __nv_bfloat162 scale_bf162 = __float2bfloat162_rn(scale);
 
     #define DEQUANT_FP8x4(OUTPUT_BF16_LO, OUTPUT_BF16_HI, FP8x4) \
     { \
@@ -143,22 +143,22 @@ __device__ __forceinline__ uint4 fp4_word_to_bf16x2_bits(uint32_t word) {
 template <bool RegisterDecode = false, typename Tensor0>
 __device__ __forceinline__ void fp4x16_to_bf16(
         uint64_t packed, Tensor0 dst, float scale, const uint32_t* lut) {
-    auto dst_bf16x2 = recast<__ppu_bfloat162>(dst);
-    __ppu_bfloat162 scale_bf16x2 = __float2bfloat162_rn(scale);
+    auto dst_bf16x2 = recast<__nv_bfloat162>(dst);
+    __nv_bfloat162 scale_bf16x2 = __float2bfloat162_rn(scale);
     if constexpr (RegisterDecode) {
         #pragma unroll
         for (int half = 0; half < 2; ++half) {
             const uint4 values = fp4_word_to_bf16x2_bits(uint32_t(packed >> (half * 32)));
-            dst_bf16x2[half * 4 + 0] = __hmul2(*reinterpret_cast<const __ppu_bfloat162*>(&values.x), scale_bf16x2);
-            dst_bf16x2[half * 4 + 1] = __hmul2(*reinterpret_cast<const __ppu_bfloat162*>(&values.y), scale_bf16x2);
-            dst_bf16x2[half * 4 + 2] = __hmul2(*reinterpret_cast<const __ppu_bfloat162*>(&values.z), scale_bf16x2);
-            dst_bf16x2[half * 4 + 3] = __hmul2(*reinterpret_cast<const __ppu_bfloat162*>(&values.w), scale_bf16x2);
+            dst_bf16x2[half * 4 + 0] = __hmul2(*reinterpret_cast<const __nv_bfloat162*>(&values.x), scale_bf16x2);
+            dst_bf16x2[half * 4 + 1] = __hmul2(*reinterpret_cast<const __nv_bfloat162*>(&values.y), scale_bf16x2);
+            dst_bf16x2[half * 4 + 2] = __hmul2(*reinterpret_cast<const __nv_bfloat162*>(&values.z), scale_bf16x2);
+            dst_bf16x2[half * 4 + 3] = __hmul2(*reinterpret_cast<const __nv_bfloat162*>(&values.w), scale_bf16x2);
         }
     } else {
         #pragma unroll
         for (int i = 0; i < 8; ++i) {
             uint32_t values = lut[uint8_t(packed >> (i * 8)) * kFp4LutReplicas];
-            dst_bf16x2[i] = __hmul2(*reinterpret_cast<__ppu_bfloat162*>(&values), scale_bf16x2);
+            dst_bf16x2[i] = __hmul2(*reinterpret_cast<__nv_bfloat162*>(&values), scale_bf16x2);
         }
     }
 }
@@ -715,7 +715,7 @@ struct KVCacheG2SFP4 {
         __syncthreads();  // staging read done before in-place bf16 write clobbers it
         #pragma unroll
         for (int w = 0; w < kWideTiles; ++w) {
-            __hg_fp8_e4m3 scale_e4m3 = *reinterpret_cast<const __hg_fp8_e4m3*>(&scale_raw[w]);
+            __nv_fp8_e4m3 scale_e4m3 = *reinterpret_cast<const __nv_fp8_e4m3*>(&scale_raw[w]);
             fp4x16_to_bf16<RegisterDecode>(packed[w], tKrK_bf16(_, _, w), float(scale_e4m3), lut);
             cute::copy(r2s_wide, tKrK_bf16(_, _, w), tKsK_bf16(_, _, w));
         }

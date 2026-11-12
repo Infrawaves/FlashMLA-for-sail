@@ -39,17 +39,17 @@ static bool use_cross_cut(int num_heads_per_head_k, int batch_size) {
 }
 
 struct GraphCaptureModeSuspender {
-    hggcStreamCaptureMode original_mode;
+    cudaStreamCaptureMode original_mode;
 
-    explicit GraphCaptureModeSuspender(hggcStreamCaptureMode relaxed_mode = hggcStreamCaptureModeRelaxed) {
+    explicit GraphCaptureModeSuspender(cudaStreamCaptureMode relaxed_mode = cudaStreamCaptureModeRelaxed) {
         original_mode = relaxed_mode;
         // Exchange current thread's mode with relaxed_mode, and store previous mode in original_mode
-        hggcThreadExchangeStreamCaptureMode(&original_mode);
+        cudaThreadExchangeStreamCaptureMode(&original_mode);
     }
 
     ~GraphCaptureModeSuspender() {
         // Restore the saved original mode back to the current thread
-        hggcThreadExchangeStreamCaptureMode(&original_mode);
+        cudaThreadExchangeStreamCaptureMode(&original_mode);
     }
 
     // Disable copying to prevent accidental double-restoration

@@ -9,8 +9,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-#include <hggc_fp16.h>
-#include <hggc_bf16.h>
+#include <cuda_fp16.h>
+#include <cuda_bf16.h>
 
 #include <c10/cuda/CUDAException.h>
 #include <ATen/cuda/CUDAContext.h>
@@ -38,12 +38,12 @@ using namespace cute;
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 
 #define CUDA_DRIVER_CHECK(expr)                             \
-    HGresult _r = (expr);                                   \
-    if (_r != HGGC_SUCCESS) {                               \
+    CUresult _r = (expr);                                   \
+    if (_r != CUDA_SUCCESS) {                               \
         const char* _name = nullptr;                        \
         const char* _str = nullptr;                         \
-        hgGetErrorName(_r, &_name);                         \
-        hgGetErrorString(_r, &_str);                        \
+        cuGetErrorName(_r, &_name);                         \
+        cuGetErrorString(_r, &_str);                        \
         TORCH_CHECK(false, "HG driver error ",            \
         (_name ? _name : "?"), ": ", (_str ? _str : "?"));  \
     }
@@ -675,7 +675,7 @@ void printf_show_log(const void* kernel, Flash_fwd_params &params, const size_t 
         int value = std::stoi(std::string(pEnv_params));
         if (value > 0) {
             int ctas_per_sm;
-            hggcError status_ = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+            cudaError status_ = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
                 &ctas_per_sm, kernel, Kernel_traits::kNThreads, smem_size);
             if (is_sparse) {
                 num_m_block = (params.seqlen_q / params.ngroups) * cute::ceil_div(params.ngroups, Kernel_traits::kBlockM);
@@ -686,8 +686,8 @@ void printf_show_log(const void* kernel, Flash_fwd_params &params, const size_t 
             }
             printf("smem_size = %d, CTAs per SM = %d, ", int(smem_size), ctas_per_sm);
 
-            hggcFuncAttributes attr;
-            hggcFuncGetAttributes(&attr, kernel);
+            cudaFuncAttributes attr;
+            cudaFuncGetAttributes(&attr, kernel);
             auto dprops = at::cuda::getCurrentDeviceProperties();
             int sm_count = dprops->multiProcessorCount == 64 ? 20 : dprops->multiProcessorCount;
             printf("HeadDim:%d, HeadDimV:%d\n",Kernel_traits::kHeadDim, Kernel_traits::kHeadDimV);
@@ -715,14 +715,14 @@ void printf_prefill_show_log(const void* kernel, SparsePrefillParams &params, co
         int value = std::stoi(std::string(pEnv_params));
         if (value > 0) {
             int ctas_per_sm;
-            hggcError status_ = hggcOccupancyMaxActiveBlocksPerMultiprocessor(
+            cudaError status_ = cudaOccupancyMaxActiveBlocksPerMultiprocessor(
                 &ctas_per_sm, kernel, Kernel_traits::kNThreads, smem_size);
 
             num_m_block = params.s_q * cute::ceil_div(params.h_q, Kernel_traits::kBlockM);
             printf("[run_flash_sparse_prefill_fwd_]:\n");
             printf("smem_size = %d, CTAs per SM = %d,", int(smem_size), ctas_per_sm);
-            hggcFuncAttributes attr;
-            hggcFuncGetAttributes(&attr, kernel);
+            cudaFuncAttributes attr;
+            cudaFuncGetAttributes(&attr, kernel);
             auto dprops = at::cuda::getCurrentDeviceProperties();
             int sm_count = dprops->multiProcessorCount == 64 ? 20 : dprops->multiProcessorCount;
             printf("HeadDim:%d, HeadDimV:%d, blockM:%d, blockN:%d\n",

@@ -24,7 +24,7 @@
 #include "decode/sparse/sparse_decode_wg.h"
 #include "kerutils/host/host.h"
 
-#include <hggc_ad.h>
+#include <cuda_ad.h>
 #define DSA_SIM_AIU 1
 
 namespace flash {
@@ -1070,7 +1070,7 @@ flash_sparse_decode_fwd_kernel(__grid_constant__ const Flash_fwd_params params) 
 ////
 template<typename Kernel_traits, bool IsFP8, bool IsV41FP8 = false,
          bool IsExtraFP4 = false, int MetadataBlockN = Kernel_traits::kBlockN>
-void run_flash_sparse_decode_fwd(Flash_fwd_params &params, hggcStream_t stream) {
+void run_flash_sparse_decode_fwd(Flash_fwd_params &params, cudaStream_t stream) {
     // TODO.
     constexpr size_t smem_size = Kernel_traits::kSmemSizeAccum
         + Kernel_traits::kBlockN * 2 * sizeof(int)
@@ -1079,22 +1079,22 @@ void run_flash_sparse_decode_fwd(Flash_fwd_params &params, hggcStream_t stream) 
 
         auto kernel = &flash::flash_sparse_decode_fwd_kernel<Kernel_traits, IsFP8, IsV41FP8, IsExtraFP4, MetadataBlockN>;
         flash::printf_show_log<Kernel_traits>(reinterpret_cast<const void*>(kernel), params, smem_size, false, true, IsFP8);
-        //CHECK_CUDA(hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+        //CHECK_CUDA(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
         if (smem_size >= 48 * 1024) {
-            C10_CUDA_CHECK(hggcFuncSetAttribute(
-                kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, smem_size));
+            C10_CUDA_CHECK(cudaFuncSetAttribute(
+                kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, smem_size));
         }
 #ifdef __HGGCCC__
        //TODO
         const void *flash_func = reinterpret_cast<const void*>(kernel);
-        HGfunction func = static_cast<HGfunction>(NULL);
-        hggcGetFuncBySymbol(reinterpret_cast<hggcFunction_t*>(&func), flash_func);
+        CUfunction func = static_cast<CUfunction>(NULL);
+        cudaGetFuncBySymbol(reinterpret_cast<cudaFunction_t*>(&func), flash_func);
 
         void* kernel_args[] = {&params};
-        HGlaunchAttributeAD LaunchAttr = {HGAD_LAUNCH_ATTRIBUTE_IGNORE}; //HGAD_LAUNCH_ATTRIBUTE_SCHED_PREFERENCE
-        HGlaunchConfigAD LaunchCfg = {num_m_block, params.h,
+        CUlaunchAttributeAD LaunchAttr = {CUAD_LAUNCH_ATTRIBUTE_IGNORE}; //CUAD_LAUNCH_ATTRIBUTE_SCHED_PREFERENCE
+        CUlaunchConfigAD LaunchCfg = {num_m_block, params.h,
         params.num_sm_parts, Kernel_traits::kNThreads, 1, 1, smem_size, stream, &LaunchAttr, 0};
-        CUDA_DRIVER_CHECK(hgLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
+        CUDA_DRIVER_CHECK(cuLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
 #else
         kernel<<<dim3(num_m_block, params.h, params.num_sm_parts), Kernel_traits::kNThreads, smem_size, stream>>>(params);
 #endif
@@ -1128,15 +1128,15 @@ void run_flash_sparse_decode_fwd(Flash_fwd_params &params, hggcStream_t stream) 
                 &flash::flash_fwd_splitkv_mla_combine_kernel<Kernel_traits, kMaxSplits>;
 #ifdef __HGGCCC__
             const void *flash_func = reinterpret_cast<const void*>(combine_kernel);
-            HGfunction func = static_cast<HGfunction>(NULL);
-            hggcGetFuncBySymbol(reinterpret_cast<hggcFunction_t*>(&func), flash_func);
+            CUfunction func = static_cast<CUfunction>(NULL);
+            cudaGetFuncBySymbol(reinterpret_cast<cudaFunction_t*>(&func), flash_func);
 
             void* kernel_args[] = {&params};
-            HGlaunchAttributeAD LaunchAttr = {HGAD_LAUNCH_ATTRIBUTE_IGNORE};
-            HGlaunchConfigAD LaunchCfg = {
+            CUlaunchAttributeAD LaunchAttr = {CUAD_LAUNCH_ATTRIBUTE_IGNORE};
+            CUlaunchConfigAD LaunchCfg = {
                 grid_combine.x, grid_combine.y, grid_combine.z,
                 128, 1, 1, 0, stream, &LaunchAttr, 0};
-            CUDA_DRIVER_CHECK(hgLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
+            CUDA_DRIVER_CHECK(cuLaunchKernelExAD(&LaunchCfg, func, kernel_args, nullptr));
 #else
             combine_kernel<<<grid_combine, 128, 0, stream>>>(params);
 #endif
@@ -1146,7 +1146,7 @@ void run_flash_sparse_decode_fwd(Flash_fwd_params &params, hggcStream_t stream) 
 }
 
 template<typename T, bool IsFP8, int Headdim, int Headdim_V, bool IsV41FP8, bool IsExtraFP4>
-void run_sparse_decode_fwd_dispatch(Flash_fwd_params& params, hggcStream_t stream) {
+void run_sparse_decode_fwd_dispatch(Flash_fwd_params& params, cudaStream_t stream) {
     static_assert(!IsV41FP8 || (IsFP8 && Headdim == 512));
     static_assert(!IsExtraFP4 || (IsV41FP8 && IsFP8 && Headdim == 512));
     if constexpr (IsV41FP8) {

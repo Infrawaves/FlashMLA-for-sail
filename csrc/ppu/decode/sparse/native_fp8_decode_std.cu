@@ -15,12 +15,12 @@ static void launch_native_d512_small(const flashmla::sparse_native_fp8::Attentio
     int launch_shared = Shared;
     if constexpr (Heads == 16 && GuardRequests && !SharedRequests) {
         int device = 0;
-        hggcGetDevice(&device);
+        cudaGetDevice(&device);
         static thread_local int previous_device = -1, shared_per_cu = 0, cache_bytes = 0;
         if (previous_device != device) {
-            hggcDeviceGetAttribute(&shared_per_cu, hggcDevAttrMaxSharedMemoryPerMultiprocessor,
+            cudaDeviceGetAttribute(&shared_per_cu, cudaDevAttrMaxSharedMemoryPerMultiprocessor,
                                    device);
-            hggcDeviceGetAttribute(&cache_bytes, hggcDevAttrL2CacheSize, device);
+            cudaDeviceGetAttribute(&cache_bytes, cudaDevAttrL2CacheSize, device);
             previous_device = device;
         }
         // One padded key tile per request must not change residency at the
@@ -42,7 +42,7 @@ static void launch_native_d512_small(const flashmla::sparse_native_fp8::Attentio
         if (!cache_reuse && !repeated_pool)
             launch_shared = max(Shared, ((shared_per_cu / 3) / 256 + 1) * 256);
     }
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, launch_shared);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, launch_shared);
     kernel<<<params.queries, 256, launch_shared, params.stream>>>(
         params.q, static_cast<const E4M3 *>(params.kv), params.idx,
         static_cast<cutlass::bfloat16_t *>(params.out), params.scale,
@@ -58,7 +58,7 @@ void run_native_d512_compact(const flashmla::sparse_native_fp8::AttentionParams 
         constexpr int Threads = 512;
         constexpr int Shared = (64 + 128) * 512 + 64 * 128 + 128 * 4 + 11 * 64 * 4 + 256;
         auto kernel = flash_fwd_sparse_fp8_std_kernel<64, 512, false, Threads, 0, false, 64, 128>;
-        hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, Shared);
+        cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, Shared);
         kernel<<<dim3(int64_t(params.queries) * (params.heads / 64)), Threads, Shared,
                  params.stream>>>(params.q, static_cast<const E4M3 *>(params.kv), params.idx,
                                   static_cast<cutlass::bfloat16_t *>(params.out), params.scale, 1,
@@ -116,7 +116,7 @@ void launch_native_d512_dual_compact(const flashmla::sparse_native_fp8::Attentio
     constexpr int GatherLanes = Heads == 64 ? 4 : 8;
     auto kernel = flash_fwd_sparse_fp8_std_kernel<BM, 512, false, 256, Prefix, GuardRequests, Heads,
                                                   64, true, GatherLanes>;
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, Shared);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, Shared);
     kernel<<<dim3(int64_t(params.queries) * (Heads == 64 ? params.heads / 64 : 1)), 256, Shared,
              params.stream>>>(
         params.q, static_cast<const E4M3 *>(params.kv), params.idx,

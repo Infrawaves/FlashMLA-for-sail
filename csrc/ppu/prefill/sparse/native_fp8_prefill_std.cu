@@ -261,7 +261,7 @@ bool try_launch(const flashmla::sparse_native_fp8::AttentionParams &params,
     auto kernel = params.qbf
         ? (params.splits > 1 ? single_tile_kernel<true, true, TotalHeads> : single_tile_kernel<false, true, TotalHeads>)
         : (params.splits > 1 ? single_tile_kernel<true, false, TotalHeads> : single_tile_kernel<false, false, TotalHeads>);
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, SharedBytes);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, SharedBytes);
     kernel<<<dim3(int64_t(params.queries) * params.splits, TotalHeads / Heads),
              Threads, SharedBytes, params.stream>>>(
         params.q, static_cast<const F8 *>(params.kv), params.idx,

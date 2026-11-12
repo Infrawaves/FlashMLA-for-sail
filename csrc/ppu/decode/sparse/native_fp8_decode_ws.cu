@@ -62,13 +62,13 @@ __global__ __launch_bounds__(2 * (BM / 16) * 4 * 32, BM <= 32 ? 2 : 1) void nati
         uint128_t packed{};
         if (r < active) {
             if (q_bf16) {
-                const auto *q = static_cast<const __ppu_bfloat16_raw *>(qraw) +
+                const auto *q = static_cast<const __nv_bfloat16_raw *>(qraw) +
                                 (long)query * qstride_t + (long)(head + r) * qstride_h + c;
-                auto *pairs = reinterpret_cast<__hg_fp8x2_storage_t *>(&packed);
+                auto *pairs = reinterpret_cast<__nv_fp8x2_storage_t *>(&packed);
                 CUTE_UNROLL
                 for (int j = 0; j < 8; j++)
                     pairs[j] = flashmla::sparse_native_fp8::pack_e4m3_pair(
-                        *reinterpret_cast<const __ppu_bfloat162_raw *>(q + j * 2));
+                        *reinterpret_cast<const __nv_bfloat162_raw *>(q + j * 2));
             } else
                 packed = *reinterpret_cast<const uint128_t *>(
                     static_cast<const F8 *>(qraw) + ((long)query * heads + head + r) * D + c);
@@ -127,7 +127,7 @@ void launch_attention(const flashmla::sparse_native_fp8::AttentionParams &params
         smem_bytes<D, ST, BM, true>() + (Prefix ? BM * (D - Prefix * 32) - 24 : 0);
     auto kernel = native_fp8_attention_kernel<D, ST, BM, Rows, Late, Prefix, Dual, Gated,
                                               GatherLanes, PairedV, ConsumerPrefetch>;
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, Smem);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, Smem);
     kernel<<<dim3(int64_t(params.queries) * params.splits * ((params.heads + BM - 1) / BM)),
              2 * (BM / 16) * 4 * 32, Smem, params.stream>>>(
         params.q, static_cast<const F8 *>(params.kv), params.idx,
@@ -310,7 +310,7 @@ void launch_verify_stream(const flashmla::sparse_native_fp8::AttentionParams &pa
     auto kernel = native_verify_stream_kernel<D, ST, H, Dual, Window, BM, Prefix>;
     const int mask_queries = min(params.qpr, 1 + (BM + logical_heads - 2) / logical_heads);
     const int shared = H == 0 ? ((Smem + 15) & ~15) + mask_queries * (params.width / 32 + 1) * 4 : Smem;
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, shared);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, shared);
     const int tiles = (params.qpr * logical_heads + BM - 1) / BM;
     const dim3 grid = H == 0 ? dim3(tiles * params.batch) : dim3(params.batch, tiles);
     kernel<<<grid, 2 * (BM / 16) * 4 * 32, shared, params.stream>>>(

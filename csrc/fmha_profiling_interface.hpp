@@ -2,7 +2,7 @@
  * Copyright (c) 2022-2026, T-HEAD (SHANGHAI) SEMICONDUCTOR CO., LTD.
  ******************************************************************************/
 #pragma once
-#include <hgtx3/hgToolsExt.h>
+#include <nvtx3/nvToolsExt.h>
 #include <string>
 #include <iostream>
 
@@ -39,10 +39,10 @@ void add_mha_params(const std::string& key, const T& val) {
 }
 
 template <typename T>
-std::string nvtx_param2str(void* addr, int sz, hggcStream_t stream) {
+std::string nvtx_param2str(void* addr, int sz, cudaStream_t stream) {
   std::vector<T> tmp(sz);
-  hggcMemcpyAsync(tmp.data(), addr, sizeof(T) * sz, hggcMemcpyDeviceToHost, stream);
-  hggcStreamSynchronize(stream);
+  cudaMemcpyAsync(tmp.data(), addr, sizeof(T) * sz, cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronize(stream);
 
   std::ostringstream oss;
   oss << "[";
@@ -204,15 +204,15 @@ public:
         std::cout << op_name << std::endl;
       }
       if (use_nvtx_) {
-        hgtxEventAttributes_t eventAttrib = {0};
-        eventAttrib.version = HGTX_VERSION;
-        eventAttrib.messageType = HGTX_MESSAGE_TYPE_ASCII;
+        nvtxEventAttributes_t eventAttrib = {0};
+        eventAttrib.version = NVTX_VERSION;
+        eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
         eventAttrib.message.ascii = op_name.c_str();
-        hgtxDomainRangePushEx(domain_, &eventAttrib);
+        nvtxDomainRangePushEx(domain_, &eventAttrib);
       }
     } else {
       if (use_nvtx_) {
-        hgtxDomainRangePop(domain_);
+        nvtxDomainRangePop(domain_);
       }
     } // if start
 
@@ -221,7 +221,7 @@ public:
 private:
   ProfilingInterface() {
     // TODO: add print log
-    domain_ = hgtxDomainCreateA("mla");
+    domain_ = nvtxDomainCreateA("mla");
     use_nvtx_ = false;
     show_params_ = false;
 
@@ -251,12 +251,12 @@ private:
   }
 
   ~ProfilingInterface() {
-    hgtxDomainDestroy(domain_);
+    nvtxDomainDestroy(domain_);
   }
 
   bool use_nvtx_;
   bool show_params_;
-  hgtxDomainHandle_t domain_;
+  nvtxDomainHandle_t domain_;
 
 };
 

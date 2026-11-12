@@ -96,17 +96,17 @@ sparse_attn_prefill_interface(
     };
     ppu::fmha::FmhaProfParam fmha_prof_params;
     if (ppu::fmha::ProfilingInterface::Instance().get_op_info()){
-        hggcStreamCaptureStatus captureStatus;
-        hggcStreamIsCapturing(params.stream, &captureStatus);
+        cudaStreamCaptureStatus captureStatus;
+        cudaStreamIsCapturing(params.stream, &captureStatus);
         std::string topk_len_str = "";
         if (params.topk_length) {
-            if (captureStatus != hggcStreamCaptureStatusNone) {
-                GraphCaptureModeSuspender protector(hggcStreamCaptureModeRelaxed);
+            if (captureStatus != cudaStreamCaptureStatusNone) {
+                GraphCaptureModeSuspender protector(cudaStreamCaptureModeRelaxed);
                 // Read profiling parameters on a side stream to avoid synchronizing the capture stream.
-                hggcStream_t side_stream;
-                if (hggcStreamCreateWithFlags(&side_stream, hggcStreamNonBlocking) == hggcSuccess) {
+                cudaStream_t side_stream;
+                if (cudaStreamCreateWithFlags(&side_stream, cudaStreamNonBlocking) == cudaSuccess) {
                     topk_len_str = fmha_prof_params.nvtx_param2str<int>(params.topk_length, params.s_q, side_stream);
-                    hggcStreamDestroy(side_stream);
+                    cudaStreamDestroy(side_stream);
                 }
             } else {
                 topk_len_str = fmha_prof_params.nvtx_param2str<int>(params.topk_length, params.s_q, params.stream);

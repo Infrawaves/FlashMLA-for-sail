@@ -119,7 +119,7 @@ void launch(const flashmla::sparse_native_fp8::AttentionParams &params) {
     using Pipeline = PrefillPipeline<D, BM>;
     constexpr int Shared = Pipeline::template smem_bytes<D, Stages, BM, ReuseQ>();
     auto kernel = flash_sparse_fp8_prefill_ws_kernel<D, Stages, BM, ReuseQ, GatherLanes, Split, PagedLse, QBF16>;
-    hggcFuncSetAttribute(kernel, hggcFuncAttributeMaxDynamicSharedMemorySize, Shared);
+    cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, Shared);
     kernel<<<dim3(int64_t(params.queries) * params.splits, params.heads / BM), 2 * (BM / 16) * 4 * 32, Shared,
              params.stream>>>(params.q, static_cast<const F8 *>(params.kv),
                               params.idx, static_cast<cutlass::bfloat16_t *>(params.out),
